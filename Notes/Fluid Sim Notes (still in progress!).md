@@ -3,7 +3,7 @@ These notes are based on the following resources:
 * [Coding Adventure: Simulating Smoke by Sebastian Lague](https://www.youtube.com/watch?v=Q78wvrQ9xsU)
 * [Stable Fluids by Jos Stam](https://pages.cs.wisc.edu/~chaol/data/cs777/stam-stable_fluids.pdf)
 ## The Theory and Implementation
-Implementation notes are written in pseudo-code.
+Implementation notes are written in *C#*.
 ### Navier Stokes Equations for Incompressible fluids
 Stable fluids assumes that the simulated fluid is uniformly viscous and non-compressible e.g its density is constant across the domain and time. Although real fluids are not incompressible, it is still a good approximation for simulating many real fluids such that water or gases which usually have low compressibility factor when the conditions such as pressure or temperature are not fluctuating too much.
 
@@ -59,7 +59,7 @@ $$\begin{align}
 &x_{i} = i\Delta x, \\
 &y_{i} = i\Delta y,
 \end{align}$$
-therefore there are $N+1$ nodes from $n=0$ to $n=N$ where a scalar field $f(x,y) =f(x_{i}, y_{j})$ can be evaluated therefore all the $(N+1)(N+1)$ values of $f(x_{i},y_{i})$ can be represented as a matrix $$\begin{align}
+therefore there are $N+1$ nodes from $n=0$ to $n=N$ where a scalar field $f(x,y) =f(x_{i}, y_{j})$ can be evaluated therefore all the $(N+1)(N+1)$ values of $f(x_{i},y_{i})$ can be represented as a matrix $$\tag{6}\begin{align}
 f_{ij}=f(x_{j},y_{i}) = \begin{pmatrix}
 f(x_{0},y_{0}) & f(x_{1},y_{0}) & \dots&f(x_{n},y_{0}) \\
 f(x_{0},y_{1}) & f(x_{1},y_{1}) & \dots & f(x_{n},y_{0}) \\
@@ -69,27 +69,74 @@ f(x_{0},y_{n}) & f(x_{1},y_{n}) & \dots & f(x_{n},y_{n})
 \end{align}$$
 ### Discretization Procedure for a Velocity Field
 
-Since in the equation $(2)$ we are interested in
+In computational fluid dynamics, the pressure is (implicitly) discretized such as a scalar field in equation $(6)$. However, to ensure the numerical ability to create 0-divergence, a staggered grid will be used to map velocity field components on the edges of cells that surround some pressure values. Therefore, if pressure for example takes on a matrix $(p)_{i,j}$ with dimensions $(N_{y}) \times (N_{x})$ in the form $$(p)_{i,j} = \begin{pmatrix}
+p_{00}&p_{01}&\dots&p_{0,N_{x}-2}&p_{0,N_{x}-1} \\
+p_{10}&p_{11}&\dots&p_{1,N_{x}-2}&p_{1,N_{x}-1} \\
+\dots&\dots&\ddots&\vdots \\
+p_{N_{y},0}&p_{N_{y},1}&\dots&p_{N_{y}-2,N_{x}-2}&p_{N_{y}-2,N_{x}-1} \\
+p_{N_{y}+1,0}&p_{N_{y}+1,1}&\dots&p_{N_{y}-1,N_{x}-2}&p_{N_{y}-1,N_{x}-1}
+\end{pmatrix} \in \mathbb{R}^{N_{y}\times N_{x}},$$
+then the corresponding velocity fields $(u_{x})_{k,l}$ and $(u_{y})_{m,n}$ will be created such that each pressure value $p_{ij} = (p)_{i,j}$ will have two vertical neighbors that correspond to the vertical velocities $(u_{y})_{i,j}$ its cell and $(u_{y})_{i+1,j}$ below, and two horizontal neighbors that correspond to the horizontal velocities $(u_{x})_{i,j}$ from the left and $(u_{x})_{i,j+1}$ from the right.
 
-
-
+Therefore $$\begin{align}
+&(u_{x})_{k,l} \in \mathbb{R}^{N_{y}\times (N_{x}+1)}, \\
+&(u_{t})_{m,n} \in \mathbb{R}^{(N_{y}+1)\times N_{x}}.
+\end{align}$$
 ````cs
 public class FluidGrid{
-	//number of cells in each direction on a square grid
+	//number of cells in each direction on a rectangular grid
 	public readonly int Nx;
 	public readonly int Ny;
-	public float
-	//...
+	public readonly float h; //"infinitesimal" value dx=dy=h
+	
+	public readonly float[,] u_x;
+	public readonly float[,] u_y;
+	
+	//initialization method
+	public FluidGrid(int cellCountX, int cellCountY, float delta)
+	{
+		Nx = cellCountX;
+		Ny = cellCountY;
+		h = delta;
+		
+		//intialize velocity fields
+		u_x = new float[N_y,N_x+1];
+		u_y = new float[N_y+1, N_y];
+	}
 }
 ````
-
 
 ### Update Loop of the Stable Fluids Algorithm
 
 The simulation will start with initial conditions $\vec{u}(\vec{x},0) = \vec{u}_{0}$. Let the solution of the algorithm after some time $t$ be $\vec{u}(\vec{x}, t) = \vec{w}_{0}(\vec{x})$.Then the update loop of the Stable Fluids simulation algorithm proceeds as follows:
-$$\vec{w}_{0}(\vec{x}) \overbrace{ \to }^{ \text{add force} } \vec{w}_{1}(\vec{x}) \overbrace{ \to }^{ \text{advect} } \vec{w}_{2}(\vec{x}) \overbrace{ \to }^{ \text{diffuse} } \vec{w}_{3}(\vec{x}) \overbrace{ \to }^{ \text{project} } \vec{w}_{4}(\vec{x}).$$
-The first step will be the addition of external force:
-$$\vec{w}_{1}(\vec{x}_{1}) = \vec{w}_{0}(\vec{x})+\Delta t \vec{f}(\vec{x},t),$$
+$$\tag{7}\vec{w}_{0}(\vec{x}) \overbrace{ \to }^{ \text{add force} } \vec{w}_{1}(\vec{x}) \overbrace{ \to }^{ \text{advect} } \vec{w}_{2}(\vec{x}) \overbrace{ \to }^{ \text{diffuse} } \vec{w}_{3}(\vec{x}) \overbrace{ \to }^{ \text{project} } \vec{w}_{4}(\vec{x}).$$
+The first step will be the **addition of external force**:
+$$\vec{w}_{1}(\vec{x}) = \vec{w}_{0}(\vec{x})+\Delta t \vec{f}(\vec{x},t),$$
 where $\vec{f}$ is some external force field normalised by the density.
 
-The second step will be the adv
+The second step will be the **advection** which in numerical implementations is simply shifting the velocity field values along the velocity field lines by some small amount using *the method of characteristics*:
+
+$$\vec{w}_{2}(\vec{x}) \leftarrow  \vec{w}_{1}(\vec{p}(\vec{x}, t-\Delta t)).$$
+For the next step **viscous diffusion** will be implemented which is equivalent to a diffusion equation $$\frac{\partial \vec{w}_{2}}{\partial t} = \nu \nabla^{2} \vec{w}_{2}$$
+which will be solved using standard implicit methods that result in a sparse linear equation $$(\mathbf{I}-\nu \Delta t \nabla^{2}) \vec{w}_{3}(\vec{x}) = \vec{w}_{2}(\vec{x}).$$
+As the last step in the calculation rule $(7)$ the **projection** occurs. The resulting $\vec{w}_{3}$ gained diverging part $\nabla q$ in addition to the desired field component that contributes the curl $\vec{w}_{3}$ in the form $$\vec{w}_{3} = \vec{w}_{4}+ \nabla q,$$
+where $q$ is a scalar field that obeys a Poisson equation $$\nabla^{2} q = \nabla \cdot \vec{w}_{3}.$$
+A solution of this equation in the domain $R$ with neumann boundary condition $\frac{\partial q}{\partial n} = 0$ will be used to derive the projection for $\vec{w}_{4}$ in the form
+$$\vec{w}_{4} = \mathbf{P} \vec{w}_{3}.$$
+### Update Loop Functions in Code - TODO
+````cs
+
+public void Awake(){
+	//initialization process
+}
+
+public void Update(){
+	//order of steps proposed by the Stable Fluids paper
+	//there are other kinds of which I'll look into (multiple times?)
+	//arguments and definitions of the methods will be added next commit! 
+	addForces();
+	advect();
+	diffuse();
+	project();
+}
+````
