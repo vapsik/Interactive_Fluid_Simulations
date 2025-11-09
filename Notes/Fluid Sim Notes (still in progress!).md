@@ -1,11 +1,12 @@
 These notes are based on the following resources:
+* [Fluid Simulation Course Notes, University of British Columbia](https://www.cs.ubc.ca/~rbridson/fluidsimulation/fluids_notes.pdf)
+* [Stable Fluids by Jos Stam](https://pages.cs.wisc.edu/~chaol/data/cs777/stam-stable_fluids.pdf)
 * [Fluid Flow Tutorial by Karl Sims](https://www.karlsims.com/fluid-flow.html)
 * [Coding Adventure: Simulating Smoke by Sebastian Lague](https://www.youtube.com/watch?v=Q78wvrQ9xsU)
-* [Stable Fluids by Jos Stam](https://pages.cs.wisc.edu/~chaol/data/cs777/stam-stable_fluids.pdf)
 ## The Theory and Implementation
 Implementation notes are written in *C#*.
 ### Navier Stokes Equations for Incompressible fluids
-Stable fluids assumes that the simulated fluid is uniformly viscous and non-compressible e.g its density is constant across the domain and time. Although real fluids are not incompressible, it is still a good approximation for simulating many real fluids such that water or gases which usually have low compressibility factor when the conditions such as pressure or temperature are not fluctuating too much.
+Stable fluids assumes that the simulated fluid is uniformly viscous and non-compressible e.g its density is constant across the spatial domain and time. Although real fluids are not incompressible, it is still a good approximation for simulating many real fluids such that water or gases which usually have low compressibility factor when the conditions such as pressure or temperature are not fluctuating too much.
 
 Navier-Stokes equations are partial differential equations that are for this kind of fluid stated as
 $$\begin{align}
