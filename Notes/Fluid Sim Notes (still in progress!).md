@@ -37,7 +37,7 @@ $$\tag{4}\begin{align}
 \end{align}$$
 and a $\nabla^{2}\vec{u}$ is a Laplacian of a velocity field produces which is in explicit form
 $$\tag{5}\begin{align}
-\nabla^{2} \vec{u} = \left(  \frac{\partial^{2} u_{1}}{\partial x^{2}} +  \frac{\partial^{2} u_{1}}{\partial y^{2}} , \frac{\partial^{2} u_{2}}{\partial x^{2}} +  \frac{\partial^{2} u_{2}}{\partial y^{2}} \right).
+\nabla^{2} \vec{u} = \left(  \frac{\partial^{2} u_{x}}{\partial x^{2}} +  \frac{\partial^{2} u_{y}}{\partial y^{2}} , \frac{\partial^{2} u_{x}}{\partial x^{2}} +  \frac{\partial^{2} u_{y}}{\partial y^{2}} \right).
 \end{align}$$
 
 Although these are analytical expressions that can be applied for analytically defined functions, the evolution of fluids can almost never be analytically defined especially in simulations where the fluid is represented discretely. Therefore these oprators aree applied on discretely defined scalar fields using the [finite difference methods](https://en.wikipedia.org/wiki/Finite_difference_method). For that, the fields $\vec{u}(x,y)$ and $p(x,y)$ must first be discretized. 
@@ -102,7 +102,7 @@ public class FluidGrid{
 		
 		//intialize velocity fields
 		u_x = new float[N_y,N_x+1];
-		u_y = new float[N_y+1, N_y];
+		u_y = new float[N_y+1, N_x];
 	}
 }
 ````
@@ -132,12 +132,43 @@ public void Awake(){
 }
 
 public void Update(){
-	//order of steps proposed by the Stable Fluids paper
-	//there are other kinds of which I'll look into (multiple times?)
-	//arguments and definitions of the methods will be added next commit! 
-	addForces();
-	advect();
-	diffuse();
-	project();
+
+	// 1. 
+	AddForces(u, forceField, dt);
+	
+	// 2. Semi-Lagrangian advection which means advecting velocities by itself
+	Advect(u, u, dt);
+	
+	// 3. Implicit diffusion using Gauss-Seidel
+	Diffuse(u, viscosity, dt, iterations);
+	
+	// 4. Projection step
+	Project(u, iterations);
 }
 ````
+
+### Solving for Diffusion
+
+The diffusion step is based on the diffusion equation $$\frac{\partial \vec{w}_{2}}{\partial t} = \nu \nabla^{2}\vec{w}_{2}$$
+which in backward finite difference discrete form will be for  $(\vec{w}_{2})_{i,j} = ((w_{2,x})_{i,j},(w_{2,y})_{i,j})$
+
+$$\begin{align}
+&\frac{(\vec{w}_{2})^{\text{new}}-(\vec{w}_{2})^{\text{old}}}{\Delta t} = \nu \nabla^{2} (\vec{w}_{2})^{new}, \\
+\tag{8}\implies& (I - \nu \Delta t \nabla^{2})(\vec{w}_{2})^{\text{new}}= (\vec{w}_{2})^{\text{old}},\quad (\vec{w}_{2})^{new} = \vec{w}_{3}.
+\end{align}$$
+Therefore solving the implicit system of equations $(8)$ will yield the
+
+To solve this in a square domain with no inner boundaries, a finite difference diffusion operator $$\nabla^{2} = \frac{1}{\Delta x^{2}} \begin{pmatrix}
+-2&1&0&\dots & \dots&0 \\
+1&-2&1&0&\dots&0 \\
+\vdots&\vdots&\vdots&\vdots&\ddots&\vdots& \\
+0&0&0&1&-2&1 \\
+0&0&0&0&1&-2
+\end{pmatrix}$$
+is used. This kind of sparse system is simple to solve.
+
+
+
+### Solving for Projection
+
+Projection or in other words 
