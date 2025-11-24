@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "Interactive_fluid_simulations.sln"
+    "dotnet.defaultSolution": "FluidSim.sln"
 }
