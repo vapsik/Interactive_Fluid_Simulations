@@ -1,0 +1,97 @@
+#pragma kernel Advect
+
+RWTexture2D<float4> _Write;
+Texture2D<float4> _Read;
+Texture2D<float4> _Velocity;
+RWTexture2D<float4> _WriteVelocity;
+
+#pragma kernel ComputeDivergence
+#pragma kernel SolvePressure
+#pragma kernel SubtractGradient
+
+RWTexture2D<float> _WritePressure;
+Texture2D<float> _ReadPressure;
+RWTexture2D<float> _WriteDivergence;
+Texture2D<float> _ReadDivergence;
+
+SamplerState _LinearClamp;
+
+float _TimeStep;
+float _Decay;
+float2 _TextureSize;
+
+[numthreads(8,8,1)]
+void Advect (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv = (id.xy + 0.5) / _TextureSize;
+    float2 velocity = _Velocity.SampleLevel(_LinearClamp, uv, 0).xy;
+    float2 prevPos = uv - (velocity * _TimeStep);
+    float4 newValue = _Read.SampleLevel(_LinearClamp, prevPos, 0);
+    
+    _Write[id.xy] = newValue * (1.0 - _Decay);
+}
+
+[numthreads(8,8,1)]
+void ComputeDivergence (uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    _WriteDivergence.GetDimensions(w, h);
+    if (id.x == 0 || id.x >= w-1 || id.y == 0 || id.y >= h-1)
+    {
+        _WriteDivergence[id.xy] = 0;
+        return;
+    }
+    
+    float4 vL = _Velocity[id.xy + int2(-1, 0)];
+    float4 vR = _Velocity[id.xy + int2(1, 0)];
+    float4 vB = _Velocity[id.xy + int2(0, -1)];
+    float4 vT = _Velocity[id.xy + int2(0, 1)];
+    
+    float div = 0.5 * (vR.x - vL.x + vT.y - vB.y);
+    _WriteDivergence[id.xy] = div;
+}
+
+[numthreads(8,8,1)]
+void SolvePressure (uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    _WritePressure.GetDimensions(w, h);
+    if (id.x == 0 || id.x >= w-1 || id.y == 0 || id.y >= h-1)
+    {
+        _WritePressure[id.xy] = 0;
+        return;
+    }
+    
+    float pL = _ReadPressure[id.xy + int2(-1, 0)];
+    float pR = _ReadPressure[id.xy + int2(1, 0)];
+    float pB = _ReadPressure[id.xy + int2(0, -1)];
+    float pT = _ReadPressure[id.xy + int2(0, 1)];
+    
+    float divergence = _ReadDivergence[id.xy];
+    
+    float newPressure = (pL + pR + pB + pT - divergence) * 0.25;
+    _WritePressure[id.xy] = newPressure;
+}
+
+[numthreads(8,8,1)]
+void SubtractGradient (uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    _WriteVelocity.GetDimensions(w, h);
+    if (id.x == 0 || id.x >= w-1 || id.y == 0 || id.y >= h-1) {
+        _WriteVelocity[id.xy] = float4(0,0,0,0);
+        return;
+    }
+    
+    float2 velocity = _WriteVelocity[id.xy].xy;
+    
+    float pL = _ReadPressure[id.xy + int2(-1, 0)];
+    float pR = _ReadPressure[id.xy + int2(1, 0)];
+    float pB = _ReadPressure[id.xy + int2(0, -1)];
+    float pT = _ReadPressure[id.xy + int2(0, 1)];
+    
+    velocity.x -= 0.5 * (pR - pL);
+    velocity.y -= 0.5 * (pT - pB);
+
+    _WriteVelocity[id.xy] = float4(velocity, 0, 0);
+}
