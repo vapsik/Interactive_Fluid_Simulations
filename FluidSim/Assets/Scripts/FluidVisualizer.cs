@@ -5,8 +5,8 @@ using UnityEngine;
 public class FluidVisualizer : MonoBehaviour
 {
     private FluidGrid fluidGrid;
-    public Color dyeColor = new Color(1, 1, 1, 0.5f);
-    
+    public Color dyeColor = new Color(1, 0, 0, 0.5f);
+    public Color dyeColor2 = new Color(0, 1, 0, 0.5f);
     public float interactionRadius = 2f;
     public float interactionStrength = 5f;
     private Vector2 mousePosOld;
@@ -33,12 +33,12 @@ public class FluidVisualizer : MonoBehaviour
         {
             for (int y = 0; y < fluidGrid.CellCountY; y++)
             {
-                float smokeValue = fluidGrid.SmokeMap[x, y];
+                Vector4 smokeValue = new Vector4(fluidGrid.SmokeMap4Ch[x, y, 0], fluidGrid.SmokeMap4Ch[x, y, 1], fluidGrid.SmokeMap4Ch[x, y, 2], fluidGrid.SmokeMap4Ch[x, y, 3] );
 
-                if (smokeValue > 0.01f)
+                if (smokeValue.w > 0.01f)
                 {
-                    dyeColor.a = smokeValue * 0.5f;
-                    Gizmos.color = dyeColor;
+                    //dyeColor.a = smokeValue * 0.5f;
+                    Gizmos.color = smokeValue;
 
                     float worldX = (x + 0.5f) * fluidGrid.CellSize;
                     float worldY = (y + 0.5f) * fluidGrid.CellSize;
@@ -146,7 +146,37 @@ public class FluidVisualizer : MonoBehaviour
                         continue;
                     }
 
-                    fluidGrid.SmokeMap[x, y] = 1f;
+                    fluidGrid.SmokeMap4Ch[x, y, 0] = dyeColor2.r;
+                    fluidGrid.SmokeMap4Ch[x, y, 1] = dyeColor2.g;
+                    fluidGrid.SmokeMap4Ch[x, y, 2] = dyeColor2.b;
+                    fluidGrid.SmokeMap4Ch[x, y, 3] = dyeColor2.a;
+
+                    //fluidGrid.SmokeMap[x,y] = 1;
+                }
+            }
+        }
+
+        if (Input.GetMouseButton(1))
+        {
+            for (int oy = -numCellsHalf; oy <= numCellsHalf; oy++)
+            {
+                for (int ox = -numCellsHalf; ox <= numCellsHalf; ox++)
+                {
+                    int x = centreCoord.x + ox;
+                    int y = centreCoord.y + oy;
+
+                    //skip cells outside grid boundaries
+                    if (x < 0 || x >= fluidGrid.CellCountX || y < 0 || y >= fluidGrid.CellCountY)
+                    {
+                        continue;
+                    }
+
+                    fluidGrid.SmokeMap4Ch[x, y, 0] = dyeColor.r;
+                    fluidGrid.SmokeMap4Ch[x, y, 1] = dyeColor.g;
+                    fluidGrid.SmokeMap4Ch[x, y, 2] = dyeColor.b;
+                    fluidGrid.SmokeMap4Ch[x, y, 3] = dyeColor.a;
+
+                    //fluidGrid.SmokeMap[x,y] = 1;
                 }
             }
         }

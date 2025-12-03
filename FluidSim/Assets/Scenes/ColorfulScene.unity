@@ -275,8 +275,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b74dd4611557488181029cf4ff5ebb2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  CellCountX: 200
-  CellCountY: 200
+  CellCountX: 160
+  CellCountY: 90
   CellSize: 0.5
   timeStepMul: 1
   solverIterations: 60
@@ -295,9 +295,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dyeColor: {r: 1, g: 0, b: 0, a: 0.5}
+  dyeColor2: {r: 0, g: 1, b: 0, a: 0.5}
   interactionRadius: 2
   interactionStrength: 2
-  drawVelocityField: 0
+  drawVelocityField: 1
   velocityArrowSkip: 2
   velocityArrowScale: 0.1
   minSpeedForColor: 0

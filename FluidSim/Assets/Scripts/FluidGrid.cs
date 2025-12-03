@@ -8,6 +8,9 @@ public class FluidGrid
     public readonly float[,] VelocitiesY;
     
     public readonly float[,] SmokeMap;
+    
+    public readonly float[,,] SmokeMap4Ch;
+
     public readonly bool[,] SolidCellMap;
     
     public readonly float[,] PressureMap;
@@ -30,6 +33,8 @@ public class FluidGrid
         this.VelocitiesY = new float[cellCountX, cellCountY+1];
         
         this.SmokeMap = new float[cellCountX, cellCountY];
+        this.SmokeMap4Ch = new float[cellCountX, cellCountY, 4];
+
         this.SolidCellMap = new bool[cellCountX, cellCountY];
         
         this.PressureMap = new float[cellCountX, cellCountY];
@@ -133,6 +138,7 @@ public class FluidGrid
             for (int y = 0; y < CellCountY; y++)
             {
                 SmokeMap[x, y] = 0;
+                SmokeMap4Ch[x, y, 0] = SmokeMap4Ch[x, y, 1] = SmokeMap4Ch[x, y, 2] = SmokeMap4Ch[x, y, 3] = 0;
             }
         }
     }

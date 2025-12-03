@@ -4,6 +4,7 @@ RWTexture2D<float4> _Write;
 Texture2D<float4> _Read;
 Texture2D<float4> _Velocity;
 RWTexture2D<float4> _WriteVelocity;
+RWTexture2D<float4> _ReadVelocity;
 
 #pragma kernel ComputeDivergence
 #pragma kernel SolvePressure

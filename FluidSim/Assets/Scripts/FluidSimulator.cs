@@ -66,7 +66,7 @@ public class FluidSimulator : MonoBehaviour
     {
         fluidVisualizer.HandleInteraction();
 
-        if (Input.GetMouseButton(0) || Input.GetMouseButton(2))
+        if (Input.GetMouseButton(0) || Input.GetMouseButton(2) || Input.GetMouseButton(1))
         {
             UploadDataToGPU();
         }
@@ -130,6 +130,12 @@ public class FluidSimulator : MonoBehaviour
         tex.filterMode = FilterMode.Bilinear;
         tex.wrapMode = TextureWrapMode.Clamp;
         tex.Create();
+
+        // ensure the RT starts cleared (avoid uninitialized/garbage data)
+        RenderTexture prev = RenderTexture.active;
+        RenderTexture.active = tex;
+        GL.Clear(true, true, Color.clear);
+        RenderTexture.active = prev;
     }
     
     void UploadDataToGPU()
@@ -137,7 +143,7 @@ public class FluidSimulator : MonoBehaviour
         Texture2D vTex = new Texture2D(CellCountX, CellCountY, TextureFormat.RGFloat, false);
         Color[] vCols = new Color[CellCountX * CellCountY];
         
-        Texture2D sTex = new Texture2D(CellCountX, CellCountY, TextureFormat.RFloat, false);
+        Texture2D sTex = new Texture2D(CellCountX, CellCountY, TextureFormat.RGBAFloat, false);
         Color[] sCols = new Color[CellCountX * CellCountY];
 
         for (int y = 0; y < CellCountY; y++)
@@ -148,8 +154,11 @@ public class FluidSimulator : MonoBehaviour
                 float v = fluidGrid.VelocitiesY[x, y];
                 vCols[y * CellCountX + x] = new Color(u, v, 0, 0);
 
-                float s = fluidGrid.SmokeMap[x, y];
-                sCols[y * CellCountX + x] = new Color(s, 0, 0, 0);
+                float read_r = fluidGrid.SmokeMap4Ch[x, y, 0];
+                float read_g = fluidGrid.SmokeMap4Ch[x, y, 1];
+                float read_b = fluidGrid.SmokeMap4Ch[x, y, 2];
+                float read_a = fluidGrid.SmokeMap4Ch[x, y, 3];
+                sCols[y * CellCountX + x] = new Color(read_r, read_g, read_b, read_a);
             }
         }
 
@@ -169,7 +178,7 @@ public class FluidSimulator : MonoBehaviour
     void DownloadSmokeFromGPU()
     {
         RenderTexture.active = smokeRead;
-        Texture2D tempTex = new Texture2D(CellCountX, CellCountY, TextureFormat.RFloat, false);
+        Texture2D tempTex = new Texture2D(CellCountX, CellCountY, TextureFormat.RGBAFloat, false);
         tempTex.ReadPixels(new Rect(0, 0, CellCountX, CellCountY), 0, 0);
         tempTex.Apply();
         RenderTexture.active = null;
@@ -179,7 +188,10 @@ public class FluidSimulator : MonoBehaviour
         {
             for (int x = 0; x < CellCountX; x++)
             {
-                fluidGrid.SmokeMap[x, y] = colors[y * CellCountX + x].r;
+                fluidGrid.SmokeMap4Ch[x, y, 0] = colors[y * CellCountX + x].r;
+                fluidGrid.SmokeMap4Ch[x, y, 1] = colors[y * CellCountX + x].g;
+                fluidGrid.SmokeMap4Ch[x, y, 2] = colors[y * CellCountX + x].b;
+                fluidGrid.SmokeMap4Ch[x, y, 3] = colors[y * CellCountX + x].a;
             }
         }
         
