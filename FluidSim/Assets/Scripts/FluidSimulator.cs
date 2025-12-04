@@ -71,6 +71,12 @@ public class FluidSimulator : MonoBehaviour
             UploadDataToGPU();
         }
 
+        bool ctrlDown = Input.GetKey(KeyCode.LeftControl);
+        if (ctrlDown && Input.GetKeyDown(KeyCode.C))
+        {
+            ResetSimulation();
+        }
+
         fluidGrid.TimeStepMul = timeStepMul;
         
         computeShader.SetFloat("_TimeStep", Time.deltaTime * timeStepMul);
@@ -218,5 +224,33 @@ public class FluidSimulator : MonoBehaviour
             }
         }
         Destroy(tempTex);
+    }
+
+    void ClearRenderTexture(RenderTexture tex)
+    {
+        if (tex == null) return;
+        RenderTexture prev = RenderTexture.active;
+        RenderTexture.active = tex;
+        GL.Clear(true, true, Color.clear);
+        RenderTexture.active = prev;
+    }
+
+    void ResetSimulation()
+    {
+        // Reset CPU data
+        fluidGrid = new FluidGrid(CellCountX, CellCountY, CellSize);
+        fluidVisualizer.SetFluidGrid(fluidGrid);
+
+        // Clear GPU textures
+        ClearRenderTexture(smokeRead);
+        ClearRenderTexture(smokeWrite);
+        ClearRenderTexture(velocityRead);
+        ClearRenderTexture(velocityWrite);
+        ClearRenderTexture(pressureRead);
+        ClearRenderTexture(pressureWrite);
+        ClearRenderTexture(divergenceTex);
+
+        // Reset shader uniforms
+        computeShader.SetFloats("_TextureSize", CellCountX, CellCountY);
     }
 }

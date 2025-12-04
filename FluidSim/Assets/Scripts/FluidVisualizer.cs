@@ -7,8 +7,6 @@ public class FluidVisualizer : MonoBehaviour
     private FluidGrid fluidGrid;
     public Color dyeColor = new Color(1, 0, 0, 0.5f);
     public Color dyeColor2 = new Color(0, 1, 0, 0.5f);
-    public float interactionRadius = 2f;
-    public float interactionStrength = 5f;
     private Vector2 mousePosOld;
     
     public bool drawVelocityField = true;
@@ -17,6 +15,12 @@ public class FluidVisualizer : MonoBehaviour
     public float minSpeedForColor = 0.0f;
     public float midSpeedForColor = 5.0f;
 
+    public float interactionRadius = 2f;
+    public float interactionStrength = 5f;
+    public float minInteractionRadius = 0.1f;
+    public float interactionScrollSpeed = 0.1f;
+
+
     public void SetFluidGrid(FluidGrid grid)
     {
         this.fluidGrid = grid;
@@ -24,10 +28,7 @@ public class FluidVisualizer : MonoBehaviour
     
     void OnDrawGizmos()
     {
-        if (fluidGrid == null)
-        {
-            return;
-        }
+        if (fluidGrid == null){return;}
         
         for (int x = 0; x < fluidGrid.CellCountX; x++)
         {
@@ -85,9 +86,26 @@ public class FluidVisualizer : MonoBehaviour
                 }
             }
         }
+
+        Gizmos.color = Color.yellow;
+        DrawCircleXZ(mouseWorldPosPrev, interactionRadius, 32);
     }
-    
-    
+
+    void DrawCircleXZ(Vector3 centre, float radius, int segments)
+    {
+        if (segments < 3) segments = 3;
+        float angleStep = Mathf.PI * 2f / segments;
+
+        Vector3 prevPoint = centre + new Vector3(radius, 0f, 0f);
+        for (int i = 1; i <= segments; i++)
+        {
+            float angle = i * angleStep;
+            Vector3 nextPoint = centre + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0f);
+            Gizmos.DrawLine(prevPoint, nextPoint);
+            prevPoint = nextPoint;
+        }
+    }
+
     private Vector2Int CellCoordFromPos(Vector2 worldPos)
     {
         int x = Mathf.FloorToInt(worldPos.x / fluidGrid.CellSize);
@@ -95,9 +113,21 @@ public class FluidVisualizer : MonoBehaviour
         return new Vector2Int(x, y);
     }
 
+    Vector3 mouseWorldPos;
+    Vector3 mouseWorldPosPrev;
+
     public void HandleInteraction()
     {
-        if (fluidGrid == null) return; 
+        if (fluidGrid == null) return;
+
+        var cam = Camera.main;
+        var mp = Input.mousePosition;
+        mp.z = -cam.transform.position.z;
+        mouseWorldPos = cam.ScreenToWorldPoint(mp);
+
+        Vector2 scroll = Input.mouseScrollDelta;
+        interactionRadius += scroll.y * interactionScrollSpeed;
+        interactionRadius = Mathf.Max(minInteractionRadius, interactionRadius);
 
         Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         Vector2 mouseDelta = mousePos - mousePosOld;
@@ -106,6 +136,7 @@ public class FluidVisualizer : MonoBehaviour
         //brush size in cells
         int numCellsHalf = Mathf.CeilToInt(interactionRadius / fluidGrid.CellSize);
 
+        // Left mouse button: add velocity
         if (Input.GetMouseButton(0))
         {
             for (int oy = -numCellsHalf; oy <= numCellsHalf; oy++)
@@ -115,7 +146,7 @@ public class FluidVisualizer : MonoBehaviour
                     int x = centreCoord.x + ox;
                     int y = centreCoord.y + oy;
 
-                    //skip cells outside grid boundaries
+                    //skip cells outside grid
                     if (x < 0 || x >= fluidGrid.CellCountX || y < 0 || y >= fluidGrid.CellCountY)
                     {
                         continue;
@@ -130,57 +161,55 @@ public class FluidVisualizer : MonoBehaviour
                 }
             }
         }
-        
+
+        // Middle mouse button: add dye(Green)
         if (Input.GetMouseButton(2))
         {
-            for (int oy = -numCellsHalf; oy <= numCellsHalf; oy++)
-            {
-                for (int ox = -numCellsHalf; ox <= numCellsHalf; ox++)
-                {
-                    int x = centreCoord.x + ox;
-                    int y = centreCoord.y + oy;
-
-                    //skip cells outside grid boundaries
-                    if (x < 0 || x >= fluidGrid.CellCountX || y < 0 || y >= fluidGrid.CellCountY)
-                    {
-                        continue;
-                    }
-
-                    fluidGrid.SmokeMap4Ch[x, y, 0] = dyeColor2.r;
-                    fluidGrid.SmokeMap4Ch[x, y, 1] = dyeColor2.g;
-                    fluidGrid.SmokeMap4Ch[x, y, 2] = dyeColor2.b;
-                    fluidGrid.SmokeMap4Ch[x, y, 3] = dyeColor2.a;
-
-                    //fluidGrid.SmokeMap[x,y] = 1;
-                }
-            }
+            ApplyDyeBrush(dyeColor2, mousePos, centreCoord, numCellsHalf);
         }
 
+        // Right mouse button: add dye(Red)
         if (Input.GetMouseButton(1))
         {
-            for (int oy = -numCellsHalf; oy <= numCellsHalf; oy++)
-            {
-                for (int ox = -numCellsHalf; ox <= numCellsHalf; ox++)
-                {
-                    int x = centreCoord.x + ox;
-                    int y = centreCoord.y + oy;
-
-                    //skip cells outside grid boundaries
-                    if (x < 0 || x >= fluidGrid.CellCountX || y < 0 || y >= fluidGrid.CellCountY)
-                    {
-                        continue;
-                    }
-
-                    fluidGrid.SmokeMap4Ch[x, y, 0] = dyeColor.r;
-                    fluidGrid.SmokeMap4Ch[x, y, 1] = dyeColor.g;
-                    fluidGrid.SmokeMap4Ch[x, y, 2] = dyeColor.b;
-                    fluidGrid.SmokeMap4Ch[x, y, 3] = dyeColor.a;
-
-                    //fluidGrid.SmokeMap[x,y] = 1;
-                }
-            }
+            ApplyDyeBrush(dyeColor, mousePos, centreCoord, numCellsHalf);
         }
 
+        mouseWorldPosPrev = mouseWorldPos;
         mousePosOld = mousePos;
     }
+
+    void ApplyDyeBrush(Color dyeColor, Vector2 mousePos, Vector2Int centreCoord, int numCellsHalf)
+    {
+        if (fluidGrid == null) return;
+
+        float radiusSqr = interactionRadius * interactionRadius;
+
+        for (int oy = -numCellsHalf; oy <= numCellsHalf; oy++)
+        {
+            for (int ox = -numCellsHalf; ox <= numCellsHalf; ox++)
+            {
+                int x = centreCoord.x + ox;
+                int y = centreCoord.y + oy;
+
+                if (x < 0 || x >= fluidGrid.CellCountX || y < 0 || y >= fluidGrid.CellCountY) continue;
+
+                Vector2 cellCenterPos = new Vector2((x + 0.5f) * fluidGrid.CellSize, (y + 0.5f) * fluidGrid.CellSize);
+
+                float distSqr = (cellCenterPos - mousePos).sqrMagnitude;
+                if (distSqr > radiusSqr) continue;
+
+                // falloff
+                float t = 1f - Mathf.Clamp01(distSqr / radiusSqr);
+                float w = Mathf.Pow(t, 0.25f);
+
+                fluidGrid.SmokeMap4Ch[x, y, 0] = Mathf.Max(fluidGrid.SmokeMap4Ch[x, y, 0], dyeColor.r * w);
+                fluidGrid.SmokeMap4Ch[x, y, 1] = Mathf.Max(fluidGrid.SmokeMap4Ch[x, y, 1], dyeColor.g * w);
+                fluidGrid.SmokeMap4Ch[x, y, 2] = Mathf.Max(fluidGrid.SmokeMap4Ch[x, y, 2], dyeColor.b * w);
+                fluidGrid.SmokeMap4Ch[x, y, 3] = Mathf.Max(fluidGrid.SmokeMap4Ch[x, y, 3], dyeColor.a * w);
+            }
+        }
+    }
+
+
+
 }
