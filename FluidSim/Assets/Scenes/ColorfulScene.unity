@@ -230,6 +230,10 @@ MonoBehaviour:
   fluidManager: {fileID: 1396908842}
   Camera: {fileID: 519420031}
   SetSizeAccordingToGrid: 1
+  setManually: 0
+  manualShiftX: 10
+  manualShiftY: 10
+  manualScale: 20
 --- !u!1 &1396908841
 GameObject:
   m_ObjectHideFlags: 0
@@ -296,13 +300,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dyeColor: {r: 1, g: 0, b: 0, a: 0.5}
   dyeColor2: {r: 0, g: 1, b: 0, a: 0.5}
-  interactionRadius: 2
-  interactionStrength: 2
   drawVelocityField: 1
   velocityArrowSkip: 2
-  velocityArrowScale: 0.1
+  velocityArrowScale: 5
   minSpeedForColor: 0
   midSpeedForColor: 5
+  interactionRadius: 2
+  interactionStrength: 2
+  minInteractionRadius: 0.1
+  interactionScrollSpeed: 0.1
+  solidCellColor: {r: 0, g: 0, b: 1, a: 1}
+  m_camera: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
