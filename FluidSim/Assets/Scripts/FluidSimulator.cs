@@ -98,23 +98,22 @@ public class FluidSimulator : MonoBehaviour
         kernelSubtractGradient = computeShader.FindKernel("SubtractGradient");
     }
     
-    float timer = 0f;
-    void Update()
+    float timer = 1f;
+    void FixedUpdate()
     {
-        timer += Time.deltaTime;
-        fluidVisualizer.HandleInteraction();
+        //timer += Time.fixedDeltaTime;
         
         if(timer > 3f*Time.fixedDeltaTime){
             fluidVisualizer.HandleSources();
-            timer = 0f;
+            UploadDataToGPU();
+            //timer = 0f;
         }   
         
         if (Input.GetMouseButton(0) || Input.GetMouseButton(2) || Input.GetMouseButton(1))
         {
-            
-            //UploadDataToGPU();
+            fluidVisualizer.HandleInteraction();
         }
-        UploadDataToGPU();
+        
 
         bool ctrlDown = Input.GetKey(KeyCode.LeftControl);
         if (ctrlDown && Input.GetKeyDown(KeyCode.C))
