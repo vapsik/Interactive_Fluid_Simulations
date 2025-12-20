@@ -15,6 +15,9 @@ Texture2D<float> _ReadPressure;
 RWTexture2D<float> _WriteDivergence;
 Texture2D<float> _ReadDivergence;
 
+//for compatibility with float-based textures
+Texture2D<float4> _SolidCellMap;
+
 SamplerState _LinearClamp;
 
 float _TimeStep;
@@ -37,18 +40,20 @@ void ComputeDivergence (uint3 id : SV_DispatchThreadID)
 {
     uint w, h;
     _WriteDivergence.GetDimensions(w, h);
-    if (id.x == 0 || id.x >= w-1 || id.y == 0 || id.y >= h-1)
+    
+    // For open boundaries, extrapolate velocities at edges
+    float vLx = (id.x == 0) ? _Velocity[id.xy + int2(1, 0)].x : _Velocity[id.xy + int2(-1, 0)].x;
+    float vRx = (id.x >= w-1) ? _Velocity[id.xy + int2(-1, 0)].x : _Velocity[id.xy + int2(1, 0)].x;
+    float vBy = (id.y == 0) ? _Velocity[id.xy + int2(0, 1)].y : _Velocity[id.xy + int2(0, -1)].y;
+    float vTy = (id.y >= h-1) ? _Velocity[id.xy + int2(0, -1)].y : _Velocity[id.xy + int2(0, 1)].y;
+    
+    if (_SolidCellMap[id.xy].r > 0.5)
     {
         _WriteDivergence[id.xy] = 0;
         return;
     }
     
-    float4 vL = _Velocity[id.xy + int2(-1, 0)];
-    float4 vR = _Velocity[id.xy + int2(1, 0)];
-    float4 vB = _Velocity[id.xy + int2(0, -1)];
-    float4 vT = _Velocity[id.xy + int2(0, 1)];
-    
-    float div = 0.5 * (vR.x - vL.x + vT.y - vB.y);
+    float div = 0.5 * (vRx - vLx + vTy - vBy);
     _WriteDivergence[id.xy] = div;
 }
 
@@ -59,14 +64,40 @@ void SolvePressure (uint3 id : SV_DispatchThreadID)
     _WritePressure.GetDimensions(w, h);
     if (id.x == 0 || id.x >= w-1 || id.y == 0 || id.y >= h-1)
     {
+        //_WritePressure[id.xy] = 0;        
+
+        if(_SolidCellMap[id.xy].r > 0.5){
+            _WritePressure[id.xy] = 0;
+        }
+        else if (id.x == 0){
+            _WritePressure[id.xy] = _ReadPressure[id.xy + int2(1,  0)];
+        }
+        else if (id.x >= w-1){
+            _WritePressure[id.xy] = _ReadPressure[id.xy + int2(-1,  0)];
+        }
+        else if (id.y == 0){
+            _WritePressure[id.xy] = _ReadPressure[id.xy + int2(0,  1)];
+        }
+        else if (id.y >= h-1){
+            _WritePressure[id.xy] = _ReadPressure[id.xy + int2(0,  -1)];
+        }
+
+        return;
+    }
+
+    if (_SolidCellMap[id.xy].r > 0.5)
+    {
         _WritePressure[id.xy] = 0;
         return;
     }
-    
-    float pL = _ReadPressure[id.xy + int2(-1, 0)];
-    float pR = _ReadPressure[id.xy + int2(1, 0)];
-    float pB = _ReadPressure[id.xy + int2(0, -1)];
-    float pT = _ReadPressure[id.xy + int2(0, 1)];
+
+    //center pressure
+    float pC = _ReadPressure[id.xy];
+
+    float pL = (_SolidCellMap[id.xy + int2(-1,  0)].r > 0.5) ? pC : _ReadPressure[id.xy + int2(-1,  0)];
+    float pR = (_SolidCellMap[id.xy + int2( 1,  0)].r > 0.5) ? pC : _ReadPressure[id.xy + int2( 1,  0)];
+    float pB = (_SolidCellMap[id.xy + int2( 0, -1)].r > 0.5) ? pC : _ReadPressure[id.xy + int2( 0, -1)];
+    float pT = (_SolidCellMap[id.xy + int2(0,  1)].r > 0.5) ? pC : _ReadPressure[id.xy + int2(0,  1)];
     
     float divergence = _ReadDivergence[id.xy];
     
@@ -79,17 +110,20 @@ void SubtractGradient (uint3 id : SV_DispatchThreadID)
 {
     uint w, h;
     _WriteVelocity.GetDimensions(w, h);
-    if (id.x == 0 || id.x >= w-1 || id.y == 0 || id.y >= h-1) {
+    
+    if (_SolidCellMap[id.xy].r > 0.5)
+    {
         _WriteVelocity[id.xy] = float4(0,0,0,0);
         return;
     }
     
-    float2 velocity = _WriteVelocity[id.xy].xy;
+    // Extrapolate pressures at boundaries for open boundaries
+    float pL = (id.x == 0) ? _ReadPressure[id.xy + int2(1, 0)] : _ReadPressure[id.xy + int2(-1, 0)];
+    float pR = (id.x >= w-1) ? _ReadPressure[id.xy + int2(-1, 0)] : _ReadPressure[id.xy + int2(1, 0)];
+    float pB = (id.y == 0) ? _ReadPressure[id.xy + int2(0, 1)] : _ReadPressure[id.xy + int2(0, -1)];
+    float pT = (id.y >= h-1) ? _ReadPressure[id.xy + int2(0, -1)] : _ReadPressure[id.xy + int2(0, 1)];
     
-    float pL = _ReadPressure[id.xy + int2(-1, 0)];
-    float pR = _ReadPressure[id.xy + int2(1, 0)];
-    float pB = _ReadPressure[id.xy + int2(0, -1)];
-    float pT = _ReadPressure[id.xy + int2(0, 1)];
+    float2 velocity = _WriteVelocity[id.xy].xy;
     
     velocity.x -= 0.5 * (pR - pL);
     velocity.y -= 0.5 * (pT - pB);

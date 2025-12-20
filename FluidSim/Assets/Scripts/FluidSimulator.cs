@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class FluidSimulator : MonoBehaviour
@@ -11,6 +12,12 @@ public class FluidSimulator : MonoBehaviour
     public FluidGrid fluidGrid;
     public float timeStepMul = 1;
     
+    
+    [SerializeField] private bool SetEdgeBoundaries = true;
+    [SerializeField] private bool SetCircularBoundaries = true;
+    [SerializeField] private bool SetDiamondBoundaries = true;
+    [SerializeField] private Vector3Int[] X_Y_R; 
+
     public int solverIterations = 20;
     
     FluidVisualizer fluidVisualizer;
@@ -27,14 +34,17 @@ public class FluidSimulator : MonoBehaviour
     private RenderTexture pressureWrite;
     private RenderTexture divergenceTex;
 
+    private RenderTexture solidCellMap;
+
     private int kernelAdvect;
     
     private int kernelComputeDivergence;
     private int kernelSolvePressure;
     private int kernelSubtractGradient;
     
-    void Start()
-    {
+    
+
+    void Awake(){
         fluidVisualizer = GetComponent<FluidVisualizer>();
         if (fluidVisualizer == null)
         {
@@ -43,8 +53,27 @@ public class FluidSimulator : MonoBehaviour
         }
         
         fluidGrid = new FluidGrid(CellCountX, CellCountY, CellSize);
-        fluidVisualizer.SetFluidGrid(fluidGrid);
+
+        if(SetEdgeBoundaries){
+            fluidGrid.SetEdgeBoundaries();
+        }
+
+        if(SetCircularBoundaries){
+            foreach(Vector3Int XYZ in X_Y_R){
+                fluidGrid.SetCircularBoundary(XYZ.x, XYZ.y, XYZ.z);
+            }
+        }
+
+        if(SetDiamondBoundaries){
+            foreach(Vector3Int XYZ in X_Y_R){
+                fluidGrid.SetDiamondBoundary(XYZ.x, XYZ.y, XYZ.z);
+            }
+        }
+
         
+        fluidVisualizer.SetFluidGrid(fluidGrid);
+
+        //to decrease overhead, move these from start to here:
         CreateRenderTexture(ref smokeRead, CellCountX, CellCountY);
         CreateRenderTexture(ref smokeWrite, CellCountX, CellCountY);
 
@@ -54,6 +83,13 @@ public class FluidSimulator : MonoBehaviour
         CreateRenderTexture(ref pressureRead, CellCountX, CellCountY);
         CreateRenderTexture(ref pressureWrite, CellCountX, CellCountY);
         CreateRenderTexture(ref divergenceTex, CellCountX, CellCountY);
+
+        //creating the Render Texture for Solid Cell map
+        CreateRenderTexture(ref solidCellMap, CellCountX, CellCountY);
+    }
+
+    void Start()
+    {
         
         kernelAdvect = computeShader.FindKernel("Advect");
         
@@ -62,14 +98,23 @@ public class FluidSimulator : MonoBehaviour
         kernelSubtractGradient = computeShader.FindKernel("SubtractGradient");
     }
     
+    float timer = 0f;
     void Update()
     {
+        timer += Time.deltaTime;
         fluidVisualizer.HandleInteraction();
-
+        
+        if(timer > 3f*Time.fixedDeltaTime){
+            fluidVisualizer.HandleSources();
+            timer = 0f;
+        }   
+        
         if (Input.GetMouseButton(0) || Input.GetMouseButton(2) || Input.GetMouseButton(1))
         {
-            UploadDataToGPU();
+            
+            //UploadDataToGPU();
         }
+        UploadDataToGPU();
 
         bool ctrlDown = Input.GetKey(KeyCode.LeftControl);
         if (ctrlDown && Input.GetKeyDown(KeyCode.C))
@@ -106,9 +151,11 @@ public class FluidSimulator : MonoBehaviour
         
         computeShader.SetTexture(kernelComputeDivergence, "_Velocity", velocityRead);
         computeShader.SetTexture(kernelComputeDivergence, "_WriteDivergence", divergenceTex);
+        computeShader.SetTexture(kernelComputeDivergence, "_SolidCellMap", solidCellMap);
         computeShader.Dispatch(kernelComputeDivergence, threadGroupsX, threadGroupsY, 1);
         
         computeShader.SetTexture(kernelSolvePressure, "_ReadDivergence", divergenceTex);
+        computeShader.SetTexture(kernelSolvePressure, "_SolidCellMap", solidCellMap);
         
         for (int i = 0; i < solverIterations; i++)
         {
@@ -123,15 +170,16 @@ public class FluidSimulator : MonoBehaviour
         
         computeShader.SetTexture(kernelSubtractGradient, "_ReadPressure", pressureRead);
         computeShader.SetTexture(kernelSubtractGradient, "_WriteVelocity", velocityRead);
+        computeShader.SetTexture(kernelSubtractGradient, "_SolidCellMap", solidCellMap);
         computeShader.Dispatch(kernelSubtractGradient, threadGroupsX, threadGroupsY, 1);
 
         DownloadSmokeFromGPU();
         DownloadVelocityFromGPU();
     }
 
-    void CreateRenderTexture(ref RenderTexture tex, int width, int height)
+    void CreateRenderTexture(ref RenderTexture tex, int width, int height, RenderTextureFormat format = RenderTextureFormat.ARGBFloat)
     {
-        tex = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBFloat);
+        tex = new RenderTexture(width, height, 0, format);
         tex.enableRandomWrite = true;
         tex.filterMode = FilterMode.Bilinear;
         tex.wrapMode = TextureWrapMode.Clamp;
@@ -174,9 +222,23 @@ public class FluidSimulator : MonoBehaviour
         sTex.SetPixels(sCols); sTex.Apply();
         Graphics.Blit(sTex, smokeRead);
         
+        Texture2D solidTex = new Texture2D(CellCountX, CellCountY, TextureFormat.RFloat, false);
+        Color[] solidCols = new Color[CellCountX * CellCountY];
+        for (int y = 0; y < CellCountY; y++)
+        {
+            for (int x = 0; x < CellCountX; x++)
+            {
+                solidCols[y * CellCountX + x] = fluidGrid.SolidCellMap[x, y] ? Color.white : Color.black;
+            }
+        }
+        solidTex.SetPixels(solidCols); solidTex.Apply();
+        Graphics.Blit(solidTex, solidCellMap);
+        
         Destroy(vTex);
         Destroy(sTex);
+        Destroy(solidTex);
         
+        // Removed ClearVelocities and ClearDye to allow data to persist on CPU
         fluidGrid.ClearVelocities(); 
         fluidGrid.ClearDye();
     }
@@ -249,6 +311,7 @@ public class FluidSimulator : MonoBehaviour
         ClearRenderTexture(pressureRead);
         ClearRenderTexture(pressureWrite);
         ClearRenderTexture(divergenceTex);
+        ClearRenderTexture(solidCellMap);
 
         // Reset shader uniforms
         computeShader.SetFloats("_TextureSize", CellCountX, CellCountY);

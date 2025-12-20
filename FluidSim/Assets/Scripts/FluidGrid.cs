@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
 public class FluidGrid
@@ -39,17 +40,6 @@ public class FluidGrid
         
         this.PressureMap = new float[cellCountX, cellCountY];
         
-        for (int x = 0; x < cellCountX; x++)
-        {
-            SolidCellMap[x, 0] = true;
-            SolidCellMap[x, cellCountY - 1] = true;
-        }
-
-        for (int y = 0; y < cellCountY; y++)
-        {
-            SolidCellMap[0, y] = true;
-            SolidCellMap[cellCountX - 1, y] = true;
-        }
     }
     
     public Vector2 CellCentre(int x, int y)
@@ -139,6 +129,51 @@ public class FluidGrid
             {
                 SmokeMap[x, y] = 0;
                 SmokeMap4Ch[x, y, 0] = SmokeMap4Ch[x, y, 1] = SmokeMap4Ch[x, y, 2] = SmokeMap4Ch[x, y, 3] = 0;
+            }
+        }
+    }
+
+    public void SetEdgeBoundaries()
+    {
+        for (int x = 0; x < CellCountX; x++)
+        {
+            SolidCellMap[x, 0] = true;
+            SolidCellMap[x, CellCountY - 1] = true;
+        }
+
+        for (int y = 0; y < CellCountY; y++)
+        {
+            SolidCellMap[0, y] = true;
+            SolidCellMap[CellCountX - 1, y] = true;
+        }
+    }
+
+    public void SetCircularBoundary(int x_pos, int y_pos, int radius)
+    {
+        for (int x = math.max(0,x_pos-radius); x < math.max(CellCountX,x_pos+radius); x++)
+        {
+            for (int y = math.max(0,y_pos-radius); y < math.max(CellCountY,y_pos+radius); y++)
+            {   
+                //if()
+                if ((x-x_pos)*(x-x_pos) + (y-y_pos)*(y-y_pos) <= radius*radius)//Mathf.Abs(x-x_pos)+Mathf.Abs(y-y_pos) <= radius)
+                {
+                    SolidCellMap[x, y] = true;
+                }
+            }
+        }
+    }
+
+    public void SetDiamondBoundary(int x_pos, int y_pos, int radius)
+    {
+        for (int x = math.max(0,x_pos-radius); x < math.max(CellCountX,x_pos+radius); x++)
+        {
+            for (int y = math.max(0,y_pos-radius); y < math.max(CellCountY,y_pos+radius); y++)
+            {   
+                //if()
+                if (Mathf.Abs(x-x_pos)+Mathf.Abs(y-y_pos) <= radius)
+                {
+                    SolidCellMap[x, y] = true;
+                }
             }
         }
     }

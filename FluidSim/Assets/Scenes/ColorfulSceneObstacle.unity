@@ -184,7 +184,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 10
+  orthographic size: 50
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -209,7 +209,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -10}
+  m_LocalPosition: {x: 20, y: 30, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -275,15 +275,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b74dd4611557488181029cf4ff5ebb2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  CellCountX: 320
-  CellCountY: 180
+  CellCountX: 400
+  CellCountY: 256
   CellSize: 0.5
   timeStepMul: 1
   SetEdgeBoundaries: 0
   SetCircularBoundaries: 1
-  SetDiamondBoundaries: 1
+  SetDiamondBoundaries: 0
   X_Y_R:
-  - {x: 80, y: 45, z: 16}
+  - {x: 179, y: 128, z: 8}
   solverIterations: 60
   computeShader: {fileID: 7200000, guid: 9062bc2ad929747409b7b3b2719124e5, type: 3}
   decay: 0.000001
@@ -310,10 +310,30 @@ MonoBehaviour:
   interactionStrength: 2
   minInteractionRadius: 0.1
   interactionScrollSpeed: 0.1
-  solidCellColor: {r: 0, g: 0, b: 1, a: 1}
-  isInteractive: 1
-  simulateSources: 0
-  dyeSources: []
+  solidCellColor: {r: 1, g: 1, b: 1, a: 1}
+  isInteractive: 0
+  simulateSources: 1
+  dyeSources:
+  - lowerLeftOrigin: {x: 100, y: 160}
+    sizeXY: {x: 12, y: 30}
+    velXY: {x: 0.5, y: 0}
+    addsDye: 0
+    sourceColor: {r: 0, g: 0, b: 0, a: 1}
+  - lowerLeftOrigin: {x: 100, y: 128}
+    sizeXY: {x: 12, y: 32}
+    velXY: {x: 0.5, y: 0}
+    addsDye: 1
+    sourceColor: {r: 0.06741722, g: 0.18200001, b: 0.9528302, a: 1}
+  - lowerLeftOrigin: {x: 100, y: 96}
+    sizeXY: {x: 12, y: 32}
+    velXY: {x: 0.5, y: 0}
+    addsDye: 1
+    sourceColor: {r: 0.5176471, g: 0.07450981, b: 0.07450981, a: 1}
+  - lowerLeftOrigin: {x: 100, y: 66}
+    sizeXY: {x: 12, y: 30}
+    velXY: {x: 0.5, y: 0}
+    addsDye: 0
+    sourceColor: {r: 0, g: 0, b: 0, a: 1}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
