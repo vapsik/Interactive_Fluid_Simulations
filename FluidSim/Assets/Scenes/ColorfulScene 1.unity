@@ -241,6 +241,8 @@ GameObject:
   - component: {fileID: 1396908842}
   - component: {fileID: 1396908844}
   - component: {fileID: 1396908843}
+  - component: {fileID: 1396908846}
+  - component: {fileID: 1396908845}
   m_Layer: 0
   m_Name: FluidManager
   m_TagString: Untagged
@@ -270,7 +272,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1396908841}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5b74dd4611557488181029cf4ff5ebb2, type: 3}
   m_Name: 
@@ -294,7 +296,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1396908841}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f67ca054bf35540af8b0fd221b01496b, type: 3}
   m_Name: 
@@ -314,6 +316,57 @@ MonoBehaviour:
   isInteractive: 1
   simulateSources: 0
   dyeSources: []
+--- !u!114 &1396908845
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1396908841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 868acdc8ca04aa147968b0b0b200afc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dyeColor: {r: 1, g: 0, b: 0, a: 0.5}
+  dyeColor2: {r: 0, g: 1, b: 0, a: 0.5}
+  drawVelocityField: 1
+  velocityArrowSkip: 1
+  velocityArrowScale: 2
+  minSpeedForColor: 0
+  midSpeedForColor: 5
+  interactionRadius: 2
+  interactionStrength: 3
+  minInteractionRadius: 0.1
+  interactionScrollSpeed: 0.1
+  solidCellColor: {r: 1, g: 1, b: 1, a: 1}
+  isInteractive: 1
+  simulateSources: 0
+  dyeSources: []
+--- !u!114 &1396908846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1396908841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef340172edfc2864ab017ecf8dd4091f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  CellCountX: 160
+  CellCountY: 90
+  CellSize: 0.5
+  timeStepMul: 1
+  SetEdgeBoundaries: 1
+  SetCircularBoundaries: 1
+  SetDiamondBoundaries: 1
+  X_Y_R:
+  - {x: 80, y: 45, z: 16}
+  solverIterations: 60
+  computeShader: {fileID: 7200000, guid: 2a97e25ba4045414cb31c423d1d3ea25, type: 3}
+  decay: 0.000001
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -270,3 +270,4 @@ After all of the previous steps $\text{add force}\to \text{advect} \to (\text{di
 
 ### Advecting Dye Fields and Particles
 
+The shape of the dye field is corresponding to the shape of the fluid (pressure) grid, it takes the advection information from the corresponding cell center velocity interpolations and advects the dye field values accordingly. The dye field could be integer times more fine than the base grid, but then more interpolations must be used to sample correct velocities from the coarser velocity grid cells.

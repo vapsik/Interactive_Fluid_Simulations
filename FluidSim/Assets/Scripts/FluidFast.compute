@@ -1,0 +1,305 @@
+#pragma kernel DyeBrush
+#pragma kernel VelocityBrush
+#pragma kernel AdvectVelocities
+#pragma kernel AdvectDye
+#pragma kernel ComputeDivergence
+#pragma kernel SolvePressure
+#pragma kernel SubtractGradient
+
+//Velocities for staggered grids
+Texture2D<float> _ReadVelocityX;
+Texture2D<float> _ReadVelocityY;
+RWTexture2D<float> _WriteVelocityX;
+RWTexture2D<float> _WriteVelocityY;
+
+Texture2D<float> _SolidCellMap;
+Texture2D<float4> _ReadDye;
+RWTexture2D<float4> _WriteDye;
+
+
+Texture2D<float> _ReadPressure;
+RWTexture2D<float> _WritePressure;
+
+//general float values
+float _CellSize;
+float _TimeStep;
+float _CountX;
+float _CountY;
+float _Decay;
+
+//for velocity brush and dye brush 
+int2 _CentreCoord;
+int _NumCellsHalf;
+float2 _MouseDelta;
+float _Strength;
+float _Radius;
+
+float4 _AppliedDyeColor;
+
+
+SamplerState _LinearClamp;
+
+[numthreads(8,8,1)]
+void AdvectDye (uint3 id : SV_DispatchThreadID)
+{
+    if (_SolidCellMap[id.xy]>0.5){
+        return;
+    }
+
+    float2 uv = (id.xy + 0.5) / float2(_CountX, _CountY);
+
+    //for solid edges:
+    float vL = (id.x == 0) ? 0.0 : _ReadVelocityX[id.xy];
+    float vR = (id.x == _CountX-1) ? 0.0 : _ReadVelocityX[id.xy + int2(1, 0)];
+    float vB = (id.y == 0) ? 0.0 : _ReadVelocityY[id.xy];
+    float vT = (id.y == _CountY-1) ? 0.0 : _ReadVelocityY[id.xy + int2(0, 1)];
+
+    float2 velocity = 0.5*float2(vL + vR, vB + vT);
+
+    float2 prevPos = uv - velocity * _TimeStep / _CellSize;
+    float4 newValue = _ReadDye.SampleLevel(_LinearClamp, prevPos, 0);  // Fixed: Explicitly float4 for clarity
+
+    _WriteDye[id.xy] = newValue * (1.0 - _Decay);
+}
+
+[numthreads(8,8,1)]
+void DyeBrush(uint3 id : SV_DispatchThreadID){
+    
+    
+    int x = _CentreCoord.x + id.x -_NumCellsHalf;
+    int y = _CentreCoord.y + id.y -_NumCellsHalf;
+    
+    if (x < 0 || x >= _CountX || y < 0 || y >= _CountY){
+        return;
+    }
+
+    if((id.x-_NumCellsHalf)*(id.x-_NumCellsHalf)+(id.y-_NumCellsHalf)*(id.y-_NumCellsHalf) > _NumCellsHalf*_NumCellsHalf){
+        return;
+    }
+
+    if (_SolidCellMap[int2(x,y)].r > 0.5){
+        return;
+    }
+
+    _WriteDye[int2(x,y)] = _AppliedDyeColor;
+}
+
+[numthreads(8,8,1)]
+void VelocityBrush(uint3 id : SV_DispatchThreadID){
+
+
+    int x = _CentreCoord.x + id.x -_NumCellsHalf;
+    int y = _CentreCoord.y + id.y -_NumCellsHalf;
+    
+    if (x < 0 || x >= _CountX || y < 0 || y >= _CountY){
+        return;
+    }
+
+    
+    if(_SolidCellMap[int2(x,y)].x > 0.5){
+        return;
+    }
+
+    float distSqr = (x-_CentreCoord.x)*(x-_CentreCoord.x) + (y-_CentreCoord.y)*(y-_CentreCoord.y);
+    
+    if(distSqr > _NumCellsHalf*_NumCellsHalf){
+        return;
+    }
+
+    
+    float weight = 1.0 - clamp(distSqr / (_Radius*_Radius), 0.0, 0.8);
+
+    _WriteVelocityX[int2(x,y)] = _ReadVelocityX[int2(x,y)] + _MouseDelta.x * weight * _Strength;
+    _WriteVelocityY[int2(x,y)] = _ReadVelocityY[int2(x,y)] + _MouseDelta.y * weight * _Strength;
+}
+
+
+
+//not needed currently:
+float BilinearScalar(RWTexture2D<float> scalarField, float2 pivot, float2 weights){
+
+    int2 horizontal = int2(1, 0);//weights.x > 0.0 ? int2(1, 0) : int2(-1, 0);
+    int2 vertical = int2(0, 1);//weights.y > 0.0 ? int2(0, 1) : int2(0, -1);;
+    int2 diagonal = horizontal + vertical;
+
+    return scalarField[pivot.xy]*(1-weights.x)*(1-weights.y) 
+        + scalarField[pivot.xy+horizontal]*(weights.x)*(1-weights.y) + scalarField[pivot.xy+vertical]*(1-weights.x)*(weights.y)
+        + scalarField[pivot.xy+diagonal]*(weights.x)*(weights.y);
+}
+
+//Advection for Staggered Grid
+//in Dispatch allocate: computeShader.Dispatch(kernelAdvectVelocities, threadGroupsX, threadGroupsY, 1)
+//threadGroupsX = Mathf.Ceil((CountX+1)/(8.0f)), threadGroupsY = Mathf.Ceil((CountY+1)/(8.0f))
+[numthreads(8,8,1)]  
+void AdvectVelocities (uint3 id : SV_DispatchThreadID)
+{   
+    if(_SolidCellMap[id.xy].x > 0.5){
+        return;
+    }
+
+    uint Nx_plus_1, Ny, Nx, Ny_plus_1;
+    _ReadVelocityX.GetDimensions(Nx_plus_1, Ny);
+    float2 spaceVelX = float2(Nx_plus_1, Ny); 
+    _ReadVelocityY.GetDimensions(Nx, Ny_plus_1);
+    float2 sampledVelocityComponents = float2(0.0,0.0);
+    float2 spaceVelY = float2(Nx, Ny_plus_1);
+
+    //X velocity advection for vertical edges
+    if(id.x < Nx_plus_1 && id.y < Ny){
+        float2 uv_velY = (float2(id.xy) + float2(0.0, 0.5))/spaceVelY; //shift due to staggeredness, left edge corresponds to index i => offset negated on x axis
+
+        //using built-in method for sampling
+        float2 backtrackVel = float2(_ReadVelocityX[id.xy], _ReadVelocityY.SampleLevel(_LinearClamp, uv_velY, 0));
+        
+        //0.25*(_ReadVelocityY[id.xy] + _ReadVelocityY[id.xy + int2(0,1)] +
+        //    _ReadVelocityY[id.xy + int2(-1,0)] + _ReadVelocityY[id.xy + int2(-1,1)]));
+
+        //backtracking length in terms of indices
+        float2 deltaIndex = backtrackVel*_TimeStep/_CellSize;
+        //using built-in sampling, offset by 0.5 because of the HLSL index due to uv conversion scheme
+        float2 uv_VelX_new = (float2(id.xy) - deltaIndex + 0.5)/spaceVelX; 
+        
+        sampledVelocityComponents.x = _ReadVelocityX.SampleLevel(_LinearClamp, uv_VelX_new, 0);
+        
+    }
+    _WriteVelocityX[id.xy] = sampledVelocityComponents.x;
+    
+    //Y velocity advection for horizontal edges
+    if(id.x < Nx && id.y < Ny_plus_1){
+
+        float2 uv_velX = (float2(id.xy) + float2(0.5, 0.0))/spaceVelX; //shift due to staggeredness, bottom edge corresponds to indeks j => offset negated on y axis
+
+        //using built-in method for sampling
+        float2 backtrackVel = float2(_ReadVelocityY.SampleLevel(_LinearClamp, uv_velX, 0), _ReadVelocityY[id.xy]);
+
+        //backtracking length in terms of indices
+        float2 deltaIndex = backtrackVel*_TimeStep/_CellSize;
+        //using built-in sampling, offset by 0.5 because of the HLSL index due to uv conversion scheme
+        float2 uv_velY_new = (float2(id.xy) - deltaIndex + 0.5)/spaceVelY;
+        sampledVelocityComponents.y = _ReadVelocityY.SampleLevel(_LinearClamp, uv_velY_new, 0);
+    }
+    _WriteVelocityY[id.xy] = sampledVelocityComponents.y;
+}
+
+///*
+
+[numthreads(8,8,1)]
+void ComputeDivergence (uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    _WriteDivergence.GetDimensions(w, h);
+    
+    
+    float vL = (id.x == 0) ? _ReadVelocityX[id.xy].x : _Velocity[id.xy + int2(-1, 0)].x;
+    float vRx = (id.x >= w-1) ? _Velocity[id.xy + int2(-1, 0)].x : _Velocity[id.xy + int2(1, 0)].x;
+    float vBy = (id.y == 0) ? _Velocity[id.xy + int2(0, 1)].y : _Velocity[id.xy + int2(0, -1)].y;
+    float vTy = (id.y >= h-1) ? _Velocity[id.xy + int2(0, -1)].y : _Velocity[id.xy + int2(0, 1)].y;
+    
+    if (_SolidCellMap[id.xy].r > 0.5)
+    {
+        _WriteDivergence[id.xy] = 0;
+        return;
+    }
+    
+    float div = 0.5 * (vRx - vLx + vTy - vBy);
+    _WriteDivergence[id.xy] = div;
+}
+
+[numthreads(8,8,1)]
+void SolvePressure (uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    _WritePressure.GetDimensions(w, h);
+    if (id.x == 0 || id.x >= w-1 || id.y == 0 || id.y >= h-1)
+    {
+        //_WritePressure[id.xy] = 0;        
+
+        if(_SolidCellMap[id.xy].r > 0.5){
+            _WritePressure[id.xy] = 0;
+        }
+        else if (id.x == 0){
+            _WritePressure[id.xy] = _ReadPressure[id.xy + int2(1,  0)];
+        }
+        else if (id.x >= w-1){
+            _WritePressure[id.xy] = _ReadPressure[id.xy + int2(-1,  0)];
+        }
+        else if (id.y == 0){
+            _WritePressure[id.xy] = _ReadPressure[id.xy + int2(0,  1)];
+        }
+        else if (id.y >= h-1){
+            _WritePressure[id.xy] = _ReadPressure[id.xy + int2(0,  -1)];
+        }
+
+        return;
+    }
+
+    if (_SolidCellMap[id.xy].r > 0.5)
+    {
+        _WritePressure[id.xy] = 0;
+        return;
+    }
+
+    //center pressure
+    float pC = _ReadPressure[id.xy];
+
+    float pL = (_SolidCellMap[id.xy + int2(-1,  0)].r > 0.5) ? pC : _ReadPressure[id.xy];
+    float pR = (_SolidCellMap[id.xy + int2( 1,  0)].r > 0.5) ? pC : _ReadPressure[id.xy + int2( 1,  0)];
+    float pB = (_SolidCellMap[id.xy + int2( 0, -1)].r > 0.5) ? pC : _ReadPressure[id.xy];
+    float pT = (_SolidCellMap[id.xy + int2(0,  1)].r > 0.5) ? pC : _ReadPressure[id.xy + int2(0,  1)];
+    
+    float divergence = _ReadDivergence[id.xy];
+    
+    float newPressure = (pL + pR + pB + pT - divergence) * 0.25;
+    _WritePressure[id.xy] = newPressure;
+}
+
+[numthreads(8,8,1)]
+void SubtractGradient (uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    _WriteVelocity.GetDimensions(w, h);
+    
+    if (_SolidCellMap[id.xy].r > 0.5)
+    {
+        _WriteVelocity[id.xy] = float4(0,0,0,0);
+        return;
+    }
+    
+    // Extrapolate pressures at boundaries for open boundaries
+    float pL = (id.x == 0) ? _ReadPressure[id.xy + int2(1, 0)] : _ReadPressure[id.xy + int2(-1, 0)];
+    float pR = (id.x >= w-1) ? _ReadPressure[id.xy + int2(-1, 0)] : _ReadPressure[id.xy + int2(1, 0)];
+    float pB = (id.y == 0) ? _ReadPressure[id.xy + int2(0, 1)] : _ReadPressure[id.xy + int2(0, -1)];
+    float pT = (id.y >= h-1) ? _ReadPressure[id.xy + int2(0, -1)] : _ReadPressure[id.xy + int2(0, 1)];
+    
+    float2 velocity = _WriteVelocity[id.xy].xy;
+    
+    velocity.x -= 0.5 * (pR - pL);
+    velocity.y -= 0.5 * (pT - pB);
+
+
+    /*if(id.x == 0 || id.x == w-1){
+        velocity.x = 0.0;
+    }
+
+    if(id.y == 0 || id.y == h-1){
+        velocity.y = 0.0;
+    }*/
+
+    
+
+    
+
+    /*if (_SolidCellMap[id.xy+int2(1,0)].r > 0.5 || _SolidCellMap[id.xy+int2(-1,0)].r > 0.5)
+    {
+        velocity.x = 0.0;
+    }
+
+    if (_SolidCellMap[id.xy+int2(0,1)].r > 0.5 || _SolidCellMap[id.xy+int2(0,-1)].r > 0.5)
+    {
+        velocity.y = 0.0;
+    }*/
+
+    _WriteVelocity[id.xy] = float4(velocity, 0, 0);
+}
+
+//*/

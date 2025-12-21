@@ -5,7 +5,7 @@ using Unity.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 
-public class FluidVisualizer : MonoBehaviour
+public class FluidVisualizerFast : MonoBehaviour
 {
     private FluidGrid fluidGrid;
     public Color dyeColor = new Color(1, 0, 0, 0.5f);
@@ -162,7 +162,7 @@ public class FluidVisualizer : MonoBehaviour
         }
     }
 
-    private void BuildVelocityMesh()
+    public void BuildVelocityMesh()
     {
         if (!drawVelocityField) return;
 
@@ -197,9 +197,9 @@ public class FluidVisualizer : MonoBehaviour
         velocityMesh.SetIndices(velocityIndices.ToArray(), MeshTopology.Lines, 0);
     }
     
-    private void UpdateSmokeTexture()
+    public void UpdateSmokeTexture(RenderTexture readDye)
     {
-        for (int x = 0; x < fluidGrid.CellCountX; x++)
+        /*for (int x = 0; x < fluidGrid.CellCountX; x++)
         {
             for (int y = 0; y < fluidGrid.CellCountY; y++)
             {   
@@ -223,25 +223,14 @@ public class FluidVisualizer : MonoBehaviour
                 }
                 
             }
-        }
-        
-        smokeTexture.SetPixels(textureData);
+        }*/
+        RenderTexture.active = readDye;
+        smokeTexture.ReadPixels(new Rect(0,0,readDye.width, readDye.height), 0, 0);
         smokeTexture.Apply(false);
+        RenderTexture.active = null;
     }
 
-    private void LateUpdate()
-    {
-        if (fluidGrid == null) return;
-        
-        //the following methods will be called in late update since the input must be read first during the update loop
-        
-        // update smoke texture every frame
-        UpdateSmokeTexture();
-        
-        // update velocity mesh periodically (every frame or less frequently)
-        BuildVelocityMesh();
-
-    }
+    
     
     private Vector2Int CellCoordFromPosNew(Vector2 worldPos)
     {
@@ -345,7 +334,7 @@ public class FluidVisualizer : MonoBehaviour
     Vector3 mouseWorldPos;
     Vector3 mouseWorldPosPrev;
 
-    public void HandleSources(){
+    public void HandleSources(FluidSimulatorFast fluidSimulatorFast){
         if(!simulateSources)
             return;
         
@@ -384,10 +373,9 @@ public class FluidVisualizer : MonoBehaviour
             }
     }
 
-    public void HandleInteraction()
+    public void HandleInteraction(FluidSimulatorFast fluidSimulatorFast)
     {
 
-        // Interaction part:
         if(isInteractive){
             if (fluidGrid == null) return;
 
@@ -407,22 +395,26 @@ public class FluidVisualizer : MonoBehaviour
             //brush size in cells
             int numCellsHalf = Mathf.CeilToInt(interactionRadius / fluidGrid.CellSize);
 
+            
             // Left mouse button: add velocity
             if (Input.GetMouseButton(0))
             {
-                ApplyVelocityBrush(centreCoord, numCellsHalf, mouseDelta, interactionStrength);
+                //ApplyVelocityBrush(centreCoord, numCellsHalf, mouseDelta, interactionStrength);
+                fluidSimulatorFast.ApplyVelocityBrushGPU(centreCoord, numCellsHalf, mouseDelta, interactionStrength);
             }
 
             // Middle mouse button: add dye(Green)
             if (Input.GetMouseButton(2))
             {
-                ApplyDyeBrush(dyeColor2, mousePos, numCellsHalf);
+                //ApplyDyeBrush(dyeColor2, mousePos, numCellsHalf);
+                fluidSimulatorFast.ApplyDyeBrushGPU(centreCoord, dyeColor2, mousePos, numCellsHalf);
             }
 
             // Right mouse button: add dye(Red)
             if (Input.GetMouseButton(1))
             {
-                ApplyDyeBrush(dyeColor, mousePos, numCellsHalf);
+                //ApplyDyeBrush(centreCoord, dyeColor, mousePos, numCellsHalf);
+                fluidSimulatorFast.ApplyDyeBrushGPU(centreCoord, dyeColor, mousePos, numCellsHalf);
             }
 
             mouseWorldPosPrev = mouseWorldPos;
@@ -454,33 +446,30 @@ public class FluidVisualizer : MonoBehaviour
         }
     }
 
-    public void ApplyDyeBrush(Color dyeColor, Vector2 mousePos, int numCellsHalf)
+    public void ApplyDyeBrush(Vector2Int centreCoord, Color dyeColor, Vector2 mousePos, int numCellsHalf)
     {
-
-        Vector2Int centreCoord = CellCoordFromPos(mousePos);
         float radiusSq = numCellsHalf*numCellsHalf;
-            for (int oy = -numCellsHalf; oy <= numCellsHalf; oy++)
+        for (int oy = -numCellsHalf; oy <= numCellsHalf; oy++)
+        {
+            for (int ox = -numCellsHalf; ox <= numCellsHalf; ox++)
             {
-                for (int ox = -numCellsHalf; ox <= numCellsHalf; ox++)
-                {
-                    //if (x < 0 || x >= fluidGrid.CellCountX || y < 0 || y >= fluidGrid.CellCountY)
-                    if(ox*ox + oy*oy >= radiusSq){
-                        continue;
-                    }
-                    int x = centreCoord.x + ox;
-                    int y = centreCoord.y + oy;
+                if(ox*ox + oy*oy >= radiusSq){
+                    continue;
+                }
+                int x = centreCoord.x + ox;
+                int y = centreCoord.y + oy;
 
-                    if(!(x >= 0 && x < fluidGrid.CellCountX &&  y >= 0 && y < fluidGrid.CellCountY)){
-                        continue;
-                    }
+                if(!(x >= 0 && x < fluidGrid.CellCountX &&  y >= 0 && y < fluidGrid.CellCountY)){
+                    continue;
+                }
 
-                    if(!fluidGrid.SolidCellMap[x, y]){
-                        fluidGrid.SmokeMap4Ch[x, y, 0] = dyeColor.r;
-                        fluidGrid.SmokeMap4Ch[x, y, 1] = dyeColor.g;
-                        fluidGrid.SmokeMap4Ch[x, y, 2] = dyeColor.b;
-                        fluidGrid.SmokeMap4Ch[x, y, 3] = dyeColor.a;
-                    }
+                if(!fluidGrid.SolidCellMap[x, y]){
+                    fluidGrid.SmokeMap4Ch[x, y, 0] = dyeColor.r;
+                    fluidGrid.SmokeMap4Ch[x, y, 1] = dyeColor.g;
+                    fluidGrid.SmokeMap4Ch[x, y, 2] = dyeColor.b;
+                    fluidGrid.SmokeMap4Ch[x, y, 3] = dyeColor.a;
                 }
             }
+        }
     }
 }

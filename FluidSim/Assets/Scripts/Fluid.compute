@@ -1,5 +1,4 @@
 #pragma kernel Advect
-
 RWTexture2D<float4> _Write;
 Texture2D<float4> _Read;
 Texture2D<float4> _Velocity;
@@ -9,7 +8,6 @@ RWTexture2D<float4> _ReadVelocity;
 #pragma kernel ComputeDivergence
 #pragma kernel SolvePressure
 #pragma kernel SubtractGradient
-
 RWTexture2D<float> _WritePressure;
 Texture2D<float> _ReadPressure;
 RWTexture2D<float> _WriteDivergence;
@@ -31,7 +29,7 @@ void Advect (uint3 id : SV_DispatchThreadID)
     float2 velocity = _Velocity.SampleLevel(_LinearClamp, uv, 0).xy;
     float2 prevPos = uv - (velocity * _TimeStep);
     float4 newValue = _Read.SampleLevel(_LinearClamp, prevPos, 0);
-    
+
     _Write[id.xy] = newValue * (1.0 - _Decay);
 }
 
@@ -127,6 +125,29 @@ void SubtractGradient (uint3 id : SV_DispatchThreadID)
     
     velocity.x -= 0.5 * (pR - pL);
     velocity.y -= 0.5 * (pT - pB);
+
+
+    /*if(id.x == 0 || id.x == w-1){
+        velocity.x = 0.0;
+    }
+
+    if(id.y == 0 || id.y == h-1){
+        velocity.y = 0.0;
+    }*/
+
+    
+
+    
+
+    /*if (_SolidCellMap[id.xy+int2(1,0)].r > 0.5 || _SolidCellMap[id.xy+int2(-1,0)].r > 0.5)
+    {
+        velocity.x = 0.0;
+    }
+
+    if (_SolidCellMap[id.xy+int2(0,1)].r > 0.5 || _SolidCellMap[id.xy+int2(0,-1)].r > 0.5)
+    {
+        velocity.y = 0.0;
+    }*/
 
     _WriteVelocity[id.xy] = float4(velocity, 0, 0);
 }
