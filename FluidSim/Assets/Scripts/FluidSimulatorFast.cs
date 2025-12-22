@@ -28,8 +28,6 @@ public class FluidSimulatorFast : MonoBehaviour
     public float decay = 0.01f;
     
     //---References to textures used for "communicating" with the compute shader---
-    private RenderTexture pressureRead;
-    private RenderTexture pressureWrite;
     private RenderTexture readDye;
     private RenderTexture writeDye;
     private RenderTexture solidCellMap;
@@ -41,17 +39,21 @@ public class FluidSimulatorFast : MonoBehaviour
     private RenderTexture readPressure;
     
     private RenderTexture writePressure;
-    
+
+    private RenderTexture readDivergence;
+
+    private RenderTexture writeDivergence;
+
     
     private int kernelDyeBrush;
     private int kernelVelocityBrush;
 
     private int kernelAdvectVelocities;
     private int kernelAdvectDye;
+    private int kernelComputeDivergence;
+    private int kernelSolvePressure;
+    private int kernelSubtractGradient;
 
-    
-    int threadGroupsX;
-    int threadGroupsY;
 
     void Awake(){
 
@@ -105,20 +107,29 @@ public class FluidSimulatorFast : MonoBehaviour
         CreateRenderTexture(ref writeVelocityY, CellCountX, CellCountY+1);
         CreateRenderTexture(ref readVelocityX, CellCountX+1, CellCountY);
         CreateRenderTexture(ref readVelocityY, CellCountX, CellCountY+1);
-        
+        CreateRenderTexture(ref readDivergence, CellCountX, CellCountY);
+        CreateRenderTexture(ref writeDivergence, CellCountX, CellCountY);
+        CreateRenderTexture(ref readPressure, CellCountX, CellCountY);
+        CreateRenderTexture(ref writePressure, CellCountX, CellCountY);
 
         //instantiating kernel references
         kernelDyeBrush = computeShader.FindKernel("DyeBrush");
         kernelVelocityBrush = computeShader.FindKernel("VelocityBrush");
         kernelAdvectVelocities = computeShader.FindKernel("AdvectVelocities");
         kernelAdvectDye = computeShader.FindKernel("AdvectDye");
+        kernelComputeDivergence = computeShader.FindKernel("ComputeDivergence");
+        kernelSolvePressure = computeShader.FindKernel("SolvePressure");
+        kernelSubtractGradient = computeShader.FindKernel("SubtractGradient");
 
-        //passing solid cell maps
+        //passing solid cell maps reference into kernels
         computeShader.SetTexture(kernelDyeBrush, "_SolidCellMap", solidCellMap);
         computeShader.SetTexture(kernelVelocityBrush, "_SolidCellMap", solidCellMap);
         computeShader.SetTexture(kernelAdvectVelocities, "_SolidCellMap", solidCellMap);
         computeShader.SetTexture(kernelAdvectDye, "_SolidCellMap", solidCellMap);
-    
+        computeShader.SetTexture(kernelComputeDivergence, "_SolidCellMap", solidCellMap);
+        computeShader.SetTexture(kernelSolvePressure, "_SolidCellMap", solidCellMap);
+        computeShader.SetTexture(kernelSubtractGradient, "_SolidCellMap", solidCellMap);
+
         //uploading solid cell map onto GPU
         UploadSolidCellsToGPU();
 
@@ -144,12 +155,12 @@ public class FluidSimulatorFast : MonoBehaviour
             ResetSimulation();
         }
 
-        //---Advection---
+        //---Advection of Velocities---
         AdvectVelocities();
         
         
         //---Divergence Computation & Corresponding Gradient Subtraction---
-        DivergenceProjection();
+        //DivergenceProjection();
 
         //NB! WRONG IMPLEMENTATION
         //TODO: IMPLEMENT STAGGERED GRID, NOT CENTERED GRID IMPLEMENTATION!!!
@@ -299,8 +310,9 @@ public class FluidSimulatorFast : MonoBehaviour
         
         computeShader.Dispatch(kernelAdvectVelocities, threadGroupsX, threadGroupsY, 1);
 
-        Graphics.Blit(writeVelocityX, readVelocityX);
-        Graphics.Blit(writeVelocityY, readVelocityY);
+        
+        WriteToRead(ref writeVelocityX, ref readVelocityX);
+        WriteToRead(ref writeVelocityY, ref readVelocityY);
     }
 
     void AdvectDye()
@@ -315,11 +327,50 @@ public class FluidSimulatorFast : MonoBehaviour
         computeShader.SetTexture(kernelAdvectDye, "_ReadVelocityY", readVelocityY);
 
         computeShader.Dispatch(kernelAdvectDye, threadGroupsX, threadGroupsY, 1);
-        Graphics.Blit(writeDye, readDye);
+        
+        WriteToRead(ref writeDye, ref readDye);
     }
 
     void DivergenceProjection()
-    {}
+    {
+        int threadGroupsX = Mathf.CeilToInt(CellCountX/8.0f);
+        int threadGroupsY = Mathf.CeilToInt(CellCountY/8.0f);
+
+        //compute divergence
+        computeShader.SetTexture(kernelComputeDivergence, "_ReadVelocityX", readVelocityX);
+        computeShader.SetTexture(kernelComputeDivergence, "_ReadVelocityY", readVelocityY);
+        computeShader.SetTexture(kernelComputeDivergence, "_WriteDivergence", writeDivergence);
+        computeShader.Dispatch(kernelComputeDivergence, threadGroupsX, threadGroupsY, 1);
+
+        //solve pressure
+        //Graphics.Blit(writeDivergence, readDivergence);
+        computeShader.SetTexture(kernelSolvePressure, "_ReadDivergence", writeDivergence); //readDivergence
+        
+        for (int i = 0; i < solverIterations; i++)
+        {
+            computeShader.SetTexture(kernelSolvePressure, "_ReadPressure", readPressure);
+            computeShader.SetTexture(kernelSolvePressure, "_WritePressure", writePressure);
+            computeShader.Dispatch(kernelSolvePressure, threadGroupsX, threadGroupsY, 1);
+
+            WriteToRead(ref writePressure, ref readPressure);
+
+            //---Gradient subtraction---
+            computeShader.SetTexture(kernelSubtractGradient, "_ReadPressure", readPressure);
+            computeShader.SetTexture(kernelSubtractGradient, "_ReadVelocityX", readVelocityX);
+            computeShader.SetTexture(kernelSubtractGradient, "_ReadVelocityY", readVelocityY);
+            computeShader.SetTexture(kernelSubtractGradient, "_WriteVelocityX", writeVelocityX);
+            computeShader.SetTexture(kernelSubtractGradient, "_WriteVelocityY", writeVelocityY);
+            computeShader.Dispatch(kernelSubtractGradient, threadGroupsX, threadGroupsY, 1);
+        }
+
+    }
+
+    void WriteToRead(ref RenderTexture write, ref RenderTexture read)
+    {
+        var tmp = read;
+        read = write;
+        write = tmp;
+    }
 
     public void AddForcesGPU()
     {
@@ -343,8 +394,10 @@ public class FluidSimulatorFast : MonoBehaviour
         computeShader.SetTexture(kernelVelocityBrush, "_WriteVelocityY", writeVelocityY);
         computeShader.Dispatch(kernelVelocityBrush, threadGroupsX, threadGroupsY, 1);
 
-        Graphics.Blit(writeVelocityX, readVelocityX);
-        Graphics.Blit(writeVelocityY, readVelocityY);
+        
+
+        WriteToRead(ref writeVelocityX, ref readVelocityX);
+        WriteToRead(ref writeVelocityY, ref readVelocityY);
 
         Debug.Log(centreCoord);
     }
@@ -360,6 +413,6 @@ public class FluidSimulatorFast : MonoBehaviour
         computeShader.SetTexture(kernelDyeBrush, "_WriteDye", writeDye);
         computeShader.Dispatch(kernelDyeBrush, threadGroupsX, threadGroupsY, 1);
         
-        Graphics.Blit(writeDye, readDye);
+        WriteToRead(ref writeDye, ref readDye);
     }
 }
