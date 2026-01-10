@@ -75,13 +75,13 @@ p_{00}&p_{01}&\dots&p_{0,N_{x}-2}&p_{0,N_{x}-1} \\
 p_{10}&p_{11}&\dots&p_{1,N_{x}-2}&p_{1,N_{x}-1} \\
 \dots&\dots&\ddots&\vdots \\
 p_{N_{y},0}&p_{N_{y},1}&\dots&p_{N_{y}-2,N_{x}-2}&p_{N_{y}-2,N_{x}-1} \\
-p_{N_{y}+1,0}&p_{N_{y}+1,1}&\dots&p_{N_{y}-1,N_{x}-2}&p_{N_{y}-1,N_{x}-1}
+p_{N_{y}-1,0}&p_{N_{y}-1,1}&\dots&p_{N_{y}-1,N_{x}-2}&p_{N_{y}-1,N_{x}-1}
 \end{pmatrix} \in \mathbb{R}^{N_{y}\times N_{x}},$$
 then the corresponding velocity fields $(u_{x})_{k,l}$ and $(u_{y})_{m,n}$ will be created such that each pressure value $p_{ij} = (p)_{i,j}$ will have two vertical neighbors that correspond to the vertical velocities $(u_{y})_{i,j}$ its cell and $(u_{y})_{i+1,j}$ below, and two horizontal neighbors that correspond to the horizontal velocities $(u_{x})_{i,j}$ from the left and $(u_{x})_{i,j+1}$ from the right.
 
 Therefore $$\begin{align}
 &(u_{x})_{k,l} \in \mathbb{R}^{N_{y}\times (N_{x}+1)}, \\
-&(u_{t})_{m,n} \in \mathbb{R}^{(N_{y}+1)\times N_{x}}.
+&(u_{y})_{m,n} \in \mathbb{R}^{(N_{y}+1)\times N_{x}}.
 \end{align}$$
 ````cs
 public class FluidGrid{

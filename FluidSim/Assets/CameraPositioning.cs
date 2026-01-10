@@ -18,7 +18,7 @@ public class CameraPositioning : MonoBehaviour
     {
         if (SetSizeAccordingToGrid){
             fluidGrid = fluidManager.GetComponent<FluidSimulator>();
-            Camera.orthographicSize = fluidGrid.CellCountX * fluidGrid.CellSize/4.0f + 2.0f;
+            Camera.orthographicSize = 1.05f*(fluidGrid.CellCountX * fluidGrid.CellSize/4.0f + 2.0f);
 
             //centering
             transform.position = new Vector3(fluidGrid.CellCountX * fluidGrid.CellSize*0.5f, fluidGrid.CellCountY * fluidGrid.CellSize*0.5f, transform.position.z);

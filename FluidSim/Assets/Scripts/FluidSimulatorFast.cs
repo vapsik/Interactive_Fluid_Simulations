@@ -148,6 +148,7 @@ public class FluidSimulatorFast : MonoBehaviour
         //fluidVisualizer.HandleSources(this);
         fluidVisualizer.HandleInteraction(this); //calls this.ApplyDyeBrushGPU() and this.ApplyVelocityBrushGPU()
         
+
         //TODO: fix reset implementation
         bool ctrlDown = Input.GetKey(KeyCode.LeftControl);
         if (ctrlDown && Input.GetKeyDown(KeyCode.C))
@@ -160,7 +161,7 @@ public class FluidSimulatorFast : MonoBehaviour
         
         
         //---Divergence Computation & Corresponding Gradient Subtraction---
-        //DivergenceProjection();
+        DivergenceProjection();
 
         //NB! WRONG IMPLEMENTATION
         //TODO: IMPLEMENT STAGGERED GRID, NOT CENTERED GRID IMPLEMENTATION!!!
