@@ -295,13 +295,12 @@ MonoBehaviour:
   CellSize: 0.5
   timeStepMul: 1
   SetEdgeBoundaries: 1
-  SetCircularBoundaries: 0
-  SetDiamondBoundaries: 1
-  X_Y_R:
-  - {x: 80, y: 45, z: 4}
-  - {x: 64, y: 13, z: 11}
-  - {x: 123, y: 60, z: 7}
-  - {x: 57, y: 71, z: 12}
+  SolidUpperLowerLeftRight: 01010101
+  XcoordYcoordRadius:
+  - {x: 84, y: 43, z: 6}
+  - {x: 117, y: 23, z: 12}
+  - {x: 45, y: 71, z: 16}
+  _0Circle_1Diamond_2Square: 020000000100000000000000
   solverIterations: 60
   computeShader: {fileID: 7200000, guid: 9062bc2ad929747409b7b3b2719124e5, type: 3}
   decay: 0
@@ -326,7 +325,7 @@ MonoBehaviour:
   minSpeedForColor: 0
   midSpeedForColor: 5
   interactionRadius: 2
-  interactionStrength: 0.05
+  interactionStrength: 1
   minInteractionRadius: 0.1
   interactionScrollSpeed: 0.1
   solidCellColor: {r: 1, g: 1, b: 1, a: 1}
@@ -345,8 +344,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 868acdc8ca04aa147968b0b0b200afc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dyeColor: {r: 1, g: 0, b: 0, a: 0.5}
+  dyeColor1: {r: 1, g: 0, b: 0, a: 1}
   dyeColor2: {r: 0, g: 1, b: 0, a: 0.5}
+  dyeColor3: {r: 0, g: 0, b: 1, a: 1}
   drawVelocityField: 1
   velocityArrowSkip: 1
   velocityArrowScale: 2
@@ -376,11 +376,15 @@ MonoBehaviour:
   CellCountY: 90
   CellSize: 0.5
   timeStepMul: 1
-  SetEdgeBoundaries: 1
-  SetCircularBoundaries: 1
-  SetDiamondBoundaries: 1
-  X_Y_R:
-  - {x: 80, y: 45, z: 16}
+  SetEdgeBoundaries: 0
+  SetCircularBoundaries: 0
+  SetDiamondBoundaries: 0
+  XcoordYcoordRadius:
+  - {x: 84, y: 43, z: 20}
+  - {x: 6, y: 9, z: 14}
+  - {x: 74, y: 18, z: 8}
+  - {x: 117, y: 49, z: 8}
+  _0Circle_1Diamond_2Square: 00000000020000000100000002000000
   solverIterations: 60
   computeShader: {fileID: 7200000, guid: 2a97e25ba4045414cb31c423d1d3ea25, type: 3}
   decay: 0.000001

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class FluidSimulatorFast : MonoBehaviour
 {
@@ -17,8 +18,8 @@ public class FluidSimulatorFast : MonoBehaviour
     [SerializeField] private bool SetEdgeBoundaries = true;
     [SerializeField] private bool SetCircularBoundaries = true;
     [SerializeField] private bool SetDiamondBoundaries = true;
-    [SerializeField] private Vector3Int[] X_Y_R; 
-
+    [SerializeField] private Vector3Int[] XcoordYcoordRadius; 
+    [SerializeField] private int[] _0Circle_1Diamond_2Square;
     public int solverIterations = 20;
     
     FluidVisualizerFast fluidVisualizer;
@@ -64,8 +65,7 @@ public class FluidSimulatorFast : MonoBehaviour
         //Instatiating the instance of FluidVisualizer.cs for this simulator
         fluidVisualizer = GetComponent<FluidVisualizerFast>();
 
-        //Initializing fluidgrid for FluidVisualizer.cs
-        fluidVisualizer.SetFluidGrid(fluidGrid);
+        
 
         if (fluidVisualizer == null)
         {
@@ -76,24 +76,33 @@ public class FluidSimulatorFast : MonoBehaviour
 
         //---Setting boundaries and solid cells dependening on the instantiation settings---
         if(SetEdgeBoundaries){
-            fluidGrid.SetEdgeBoundaries();
+            fluidGrid.SetEdgeBoundaries(new bool[] {true, true, true, true});
         }
 
-        if(SetCircularBoundaries){
-            foreach(Vector3Int XYZ in X_Y_R){
-                fluidGrid.SetCircularBoundary(XYZ.x, XYZ.y, XYZ.z);
+        //---Drawing inner boundaries
+        int _currentIndex = 0;
+        foreach(Vector3Int XYZ in XcoordYcoordRadius){
+            if(_0Circle_1Diamond_2Square[_currentIndex] == 0)
+            {
+                fluidGrid.SetCircularBoundary(XYZ.x, XYZ.y, XYZ.z);    
             }
-        }
-
-        if(SetDiamondBoundaries){
-            foreach(Vector3Int XYZ in X_Y_R){
+            else if(_0Circle_1Diamond_2Square[_currentIndex] == 1)
+            {
                 fluidGrid.SetDiamondBoundary(XYZ.x, XYZ.y, XYZ.z);
             }
+            else if(_0Circle_1Diamond_2Square[_currentIndex] == 2)
+            {
+                //fluidGrid.SetSquareBoundary(XYZ.x, XYZ.y, XYZ.z);
+            }
+            _currentIndex++;
         }
 
+        //Initializing fluidgrid for FluidVisualizerFast.cs
+        fluidVisualizer.SetFluidGrid(fluidGrid);
+
         //setting compute shader floats
-        computeShader.SetFloat("_CountX", CellCountX);
-        computeShader.SetFloat("_CountY", CellCountY);
+        computeShader.SetInt("_CountX", CellCountX);
+        computeShader.SetInt("_CountY", CellCountY);
         computeShader.SetFloat("_CellSize", fluidGrid.CellSize);
         computeShader.SetFloat("_TimeStep", fluidGrid.TimeStepMul);
         computeShader.SetFloat("_Decay", decay);
@@ -136,6 +145,8 @@ public class FluidSimulatorFast : MonoBehaviour
         //if one has to initialize with velocities:
         //UploadVelocitiesToGPU();
 
+
+        fluidVisualizer.DrawSolidCell();
     }
     
     //float timer = 1f;
@@ -298,8 +309,8 @@ public class FluidSimulatorFast : MonoBehaviour
     }
     void AdvectVelocities()
     {
-        int threadGroupsX = (int)Mathf.Ceil((CellCountX+1.0f)/8.0f);
-        int threadGroupsY = (int)Mathf.Ceil((CellCountY+1.0f)/8.0f);
+        int threadGroupsX = (int)Mathf.Ceil((CellCountX+1)/8.0f);
+        int threadGroupsY = (int)Mathf.Ceil((CellCountY+1)/8.0f);
 
         computeShader.SetTexture(kernelAdvectVelocities, "_ReadVelocityX", readVelocityX);
         computeShader.SetTexture(kernelAdvectVelocities, "_ReadVelocityY", readVelocityY);
@@ -354,16 +365,24 @@ public class FluidSimulatorFast : MonoBehaviour
             computeShader.Dispatch(kernelSolvePressure, threadGroupsX, threadGroupsY, 1);
 
             WriteToRead(ref writePressure, ref readPressure);
-
-            //---Gradient subtraction---
-            computeShader.SetTexture(kernelSubtractGradient, "_ReadPressure", readPressure);
-            computeShader.SetTexture(kernelSubtractGradient, "_ReadVelocityX", readVelocityX);
-            computeShader.SetTexture(kernelSubtractGradient, "_ReadVelocityY", readVelocityY);
-            computeShader.SetTexture(kernelSubtractGradient, "_WriteVelocityX", writeVelocityX);
-            computeShader.SetTexture(kernelSubtractGradient, "_WriteVelocityY", writeVelocityY);
-            computeShader.Dispatch(kernelSubtractGradient, threadGroupsX, threadGroupsY, 1);
         }
 
+        //---Gradient subtraction---
+        computeShader.SetTexture(kernelSubtractGradient, "_ReadPressure", readPressure);
+        computeShader.SetTexture(kernelSubtractGradient, "_ReadVelocityX", readVelocityX);
+        computeShader.SetTexture(kernelSubtractGradient, "_ReadVelocityY", readVelocityY);
+        computeShader.SetTexture(kernelSubtractGradient, "_WriteVelocityX", writeVelocityX);
+        computeShader.SetTexture(kernelSubtractGradient, "_WriteVelocityY", writeVelocityY);
+        computeShader.Dispatch(kernelSubtractGradient, threadGroupsX, threadGroupsY, 1);
+        
+        // Use correct thread groups for velocity grid
+        int velThreadGroupsX = Mathf.CeilToInt((CellCountX+1)/8.0f);
+        int velThreadGroupsY = Mathf.CeilToInt((CellCountY+1)/8.0f);
+        computeShader.Dispatch(kernelSubtractGradient, velThreadGroupsX, velThreadGroupsY, 1);
+        
+        // Swap velocity buffers
+        WriteToRead(ref writeVelocityX, ref readVelocityX);
+        WriteToRead(ref writeVelocityY, ref readVelocityY);
     }
 
     void WriteToRead(ref RenderTexture write, ref RenderTexture read)
@@ -411,9 +430,14 @@ public class FluidSimulatorFast : MonoBehaviour
         computeShader.SetInt("_NumCellsHalf", numCellsHalf);
         computeShader.SetInts("_CentreCoord", centreCoord.x, centreCoord.y);
         computeShader.SetVector("_AppliedDyeColor", dyeColor);
-        computeShader.SetTexture(kernelDyeBrush, "_WriteDye", writeDye);
-        computeShader.Dispatch(kernelDyeBrush, threadGroupsX, threadGroupsY, 1);
+        //computeShader.SetTexture(kernelDyeBrush, "_WriteDye", writeDye);
+        //computeShader.Dispatch(kernelDyeBrush, threadGroupsX, threadGroupsY, 1);
         
-        WriteToRead(ref writeDye, ref readDye);
+        // Write directly to readDye so it's immediately advected in the next step
+    computeShader.SetTexture(kernelDyeBrush, "_WriteDye", readDye);
+    computeShader.Dispatch(kernelDyeBrush, threadGroupsX, threadGroupsY, 1);
+
+        //No swap: dye is directly in readDye, ready for advection
+        //WriteToRead(ref writeDye, ref readDye);
     }
 }

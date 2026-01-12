@@ -14,9 +14,9 @@ public class FluidSimulator : MonoBehaviour
     
     //---Boundary instantiation parameters---
     [SerializeField] private bool SetEdgeBoundaries = true;
-    [SerializeField] private bool SetCircularBoundaries = true;
-    [SerializeField] private bool SetDiamondBoundaries = true;
-    [SerializeField] private Vector3Int[] X_Y_R; 
+    [SerializeField] private bool[] SolidUpperLowerLeftRight = {true, true, true, true};
+    [SerializeField] private Vector3Int[] XcoordYcoordRadius; 
+    [SerializeField] private int[] _0Circle_1Diamond_2Square;
 
     public int solverIterations = 20;
     
@@ -46,6 +46,8 @@ public class FluidSimulator : MonoBehaviour
     int threadGroupsX;
     int threadGroupsY;
 
+    
+
     void Awake(){
 
         //Fluidgrid initialization
@@ -65,21 +67,23 @@ public class FluidSimulator : MonoBehaviour
         }
 
 
-        //---Setting boundaries and solid cells dependening on the instantiation settings---
-        if(SetEdgeBoundaries){
-            fluidGrid.SetEdgeBoundaries();
-        }
-
-        if(SetCircularBoundaries){
-            foreach(Vector3Int XYZ in X_Y_R){
-                fluidGrid.SetCircularBoundary(XYZ.x, XYZ.y, XYZ.z);
+        //---Setting inner boundaries and solid cells dependening on the instantiation settings---
+        
+        int _currentIndex = 0;
+        foreach(Vector3Int XYZ in XcoordYcoordRadius){
+            if(_0Circle_1Diamond_2Square[_currentIndex] == 0)
+            {
+                fluidGrid.SetCircularBoundary(XYZ.x, XYZ.y, XYZ.z);    
             }
-        }
-
-        if(SetDiamondBoundaries){
-            foreach(Vector3Int XYZ in X_Y_R){
+            else if(_0Circle_1Diamond_2Square[_currentIndex] == 1)
+            {
                 fluidGrid.SetDiamondBoundary(XYZ.x, XYZ.y, XYZ.z);
             }
+            else if(_0Circle_1Diamond_2Square[_currentIndex] == 2)
+            {
+                fluidGrid.SetSquareBoundary(XYZ.x, XYZ.y, XYZ.z);
+            }
+            _currentIndex++;
         }
 
 
@@ -131,7 +135,8 @@ public class FluidSimulator : MonoBehaviour
         //---Handling sources and interaction---
         //TODO: IMPLEMENT VELOCITY BRUSH ON THE SHADER
         
-        fluidVisualizer.HandleSources();
+        //fluidVisualizer.HandleSources();
+
         fluidVisualizer.HandleInteraction();
         UploadDataToGPU();
         

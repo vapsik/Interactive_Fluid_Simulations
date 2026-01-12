@@ -185,7 +185,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 10
+  orthographic size: 23.1
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -210,7 +210,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -10}
+  m_LocalPosition: {x: 40, y: 22.5, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -223,7 +223,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 519420028}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 187e7fc95bb2ba84e9296f6ce9ecb0f0, type: 3}
   m_Name: 
@@ -254,6 +254,8 @@ GameObject:
   - component: {fileID: 1396908842}
   - component: {fileID: 1396908844}
   - component: {fileID: 1396908843}
+  - component: {fileID: 1396908846}
+  - component: {fileID: 1396908845}
   m_Layer: 0
   m_Name: FluidManager
   m_TagString: Untagged
@@ -293,10 +295,9 @@ MonoBehaviour:
   CellSize: 0.5
   timeStepMul: 1
   SetEdgeBoundaries: 1
-  SetCircularBoundaries: 0
-  SetDiamondBoundaries: 0
-  X_Y_R:
-  - {x: 80, y: 45, z: 16}
+  SolidUpperLowerLeftRight: 01010101
+  XcoordYcoordRadius: []
+  _0Circle_1Diamond_2Square: 
   solverIterations: 60
   computeShader: {fileID: 7200000, guid: 9062bc2ad929747409b7b3b2719124e5, type: 3}
   decay: 0.000001
@@ -327,6 +328,59 @@ MonoBehaviour:
   solidCellColor: {r: 1, g: 1, b: 1, a: 1}
   isInteractive: 1
   simulateSources: 0
+  dyeSources: []
+--- !u!114 &1396908845
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1396908841}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef340172edfc2864ab017ecf8dd4091f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  CellCountX: 160
+  CellCountY: 90
+  CellSize: 0.5
+  timeStepMul: 1
+  SetEdgeBoundaries: 1
+  SetCircularBoundaries: 0
+  SetDiamondBoundaries: 0
+  XcoordYcoordRadius:
+  - {x: 80, y: 45, z: 10}
+  _0Circle_1Diamond_2Square: 00000000
+  solverIterations: 60
+  computeShader: {fileID: 7200000, guid: 2a97e25ba4045414cb31c423d1d3ea25, type: 3}
+  decay: 0
+--- !u!114 &1396908846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1396908841}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 868acdc8ca04aa147968b0b0b200afc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dyeColor1: {r: 1, g: 0, b: 0, a: 1}
+  dyeColor2: {r: 0, g: 1, b: 0, a: 0.5}
+  dyeColor3: {r: 0, g: 0, b: 1, a: 1}
+  drawVelocityField: 1
+  velocityArrowSkip: 2
+  velocityArrowScale: 10
+  minSpeedForColor: 0
+  midSpeedForColor: 5
+  interactionRadius: 2
+  interactionStrength: 5
+  minInteractionRadius: 0.1
+  interactionScrollSpeed: 0.1
+  solidCellColor: {r: 1, g: 1, b: 1, a: 1}
+  isInteractive: 1
+  simulateSources: 1
   dyeSources: []
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

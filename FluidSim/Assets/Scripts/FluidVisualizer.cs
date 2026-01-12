@@ -35,7 +35,6 @@ public class FluidVisualizer : MonoBehaviour
     // Velocity mesh rendering
     private Mesh velocityMesh;
     private Material velocityMaterial;
-    private LineRenderer circleLineRenderer;
     private int velocityLineCount = 0;
     private List<Vector3> velocityVertices = new List<Vector3>();
     private List<int> velocityIndices = new List<int>();
@@ -46,6 +45,8 @@ public class FluidVisualizer : MonoBehaviour
     public bool isInteractive = true;
 
     public bool simulateSources = true;
+    // Brush Circle renderer
+    private LineRenderer circleLineRenderer;
 
     public FlowSource[] dyeSources;
 
@@ -74,7 +75,7 @@ public class FluidVisualizer : MonoBehaviour
         MeshFilter velMeshFilter = velocityObject.AddComponent<MeshFilter>();
         velMeshFilter.mesh = velocityMesh;
         velocityRenderer.material = velocityMaterial;
-        DrawSolidCell();
+        
 
         // setup circle LineRenderer
         chosenDyeColor = dyeColor1;
@@ -249,6 +250,12 @@ public class FluidVisualizer : MonoBehaviour
         smokeTexture.Apply(false);
     }
 
+    void FixedUpdate()
+    {
+        HandleSources();
+        
+    }
+
     void Update()
     {
         ReadSwitches();
@@ -284,6 +291,10 @@ public class FluidVisualizer : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (Input.GetMouseButtonDown(0)) {
+            Application.runInBackground = true;
+        }
+
         if (fluidGrid == null) return;
         
         //the following methods will be called in late update since the input must be read first during the update loop
@@ -294,6 +305,7 @@ public class FluidVisualizer : MonoBehaviour
         // update velocity mesh periodically (every frame or less frequently)
         BuildVelocityMesh();
 
+        // circle brush update
         if (isInteractive)
         {
             UpdateCircleLineRenderer(mouseWorldPosPrev, interactionRadius, 32);
@@ -303,7 +315,7 @@ public class FluidVisualizer : MonoBehaviour
         {
             circleLineRenderer.enabled = false;
         }
-
+        
     }
 
     void UpdateCircleLineRenderer(Vector3 centre, float radius, int segments)
@@ -365,42 +377,87 @@ public class FluidVisualizer : MonoBehaviour
     Vector3 mouseWorldPosPrev;
 
     public void HandleSources(){
-        if(!simulateSources)
+        if(!simulateSources){
             return;
-        
+        }
+
         foreach (FlowSource source in dyeSources)
+        {
+            int x0 = source.lowerLeftOrigin.x;
+            int xf = x0 + source.sizeXY.x;
+            int y0 = source.lowerLeftOrigin.y;
+            int yf = y0 + source.sizeXY.y;
+            
+            // Buffer zone: how many cells to extend the velocity gradient
+            int bufferZone = 3;
+            
+            // Add dye to all cells in source region
+            for(int x = x0; x <= xf; x++)
             {
-                int x0 = source.lowerLeftOrigin.x;
-                int xf = x0 + source.sizeXY.x;
-                int y0 = source.lowerLeftOrigin.y;
-                int yf = y0 + source.sizeXY.y;
-                for(int x = x0; x <= xf; x++)
+                for (int y = y0; y <= yf; y++)
                 {
-                    for (int y = y0; y <= yf; y++)
-                    {
-                        if(!fluidGrid.SolidCellMap[x, y] && source.addsDye){
-                            fluidGrid.SmokeMap4Ch[x, y, 0] = source.sourceColor.r;
-                            fluidGrid.SmokeMap4Ch[x, y, 1] = source.sourceColor.g;
-                            fluidGrid.SmokeMap4Ch[x, y, 2] = source.sourceColor.b;
-                            fluidGrid.SmokeMap4Ch[x, y, 3] = source.sourceColor.a;
-                        }
-                        //Debug.Log(source.sourceColor);
-
-                        //add velocities to corresponding edges:
-                        fluidGrid.VelocitiesX[x, y] = source.velXY.x;
-                        fluidGrid.VelocitiesY[x, y] = source.velXY.y;
-
-                        //to correctly deal with staggered grids:
-                        if(x == xf){
-                            fluidGrid.VelocitiesX[x+1, y] = source.velXY.x;
-                        }
-
-                        if(y == yf){
-                            fluidGrid.VelocitiesY[x, y+1] = source.velXY.y;
-                        }
+                    // Create stripes: show dye when (y / 2) % 4 < 2
+                    // This creates stripes of height 2 with 2-cell gaps
+                    int stripePattern = (y / 2) % 4;
+                    bool inStripe = stripePattern < 2;
+                    
+                    if(!fluidGrid.SolidCellMap[x, y] && source.addsDye && inStripe){
+                        fluidGrid.SmokeMap4Ch[x, y, 0] = source.sourceColor.r;
+                        fluidGrid.SmokeMap4Ch[x, y, 1] = source.sourceColor.g;
+                        fluidGrid.SmokeMap4Ch[x, y, 2] = source.sourceColor.b;
+                        fluidGrid.SmokeMap4Ch[x, y, 3] = source.sourceColor.a;
                     }
                 }
             }
+            
+            // Horizontal flow (X velocity) with gradient
+            if(source.velXY.x != 0){
+                int startX = (source.velXY.x > 0) ? x0 : xf;
+                int direction = (source.velXY.x > 0) ? 1 : -1;
+                
+                for(int y = y0; y <= yf; y++){
+                    if(y < 0 || y >= fluidGrid.CellCountY) continue;
+                    
+                    // Apply velocity with decreasing strength over buffer zone
+                    for(int offset = 0; offset < bufferZone; offset++){
+                        int x = startX + offset * direction;
+                        if(x < 0 || x > fluidGrid.CellCountX) continue;
+                        
+                        // Smooth falloff
+                        float weight = 1.0f - (float)offset / bufferZone;
+                        float targetVel = source.velXY.x * weight;
+                        
+                        // Blend with existing velocity instead of overwriting
+                        float alpha = 0.3f; // How strongly to apply the source
+                        fluidGrid.VelocitiesX[x, y] = Mathf.Lerp(fluidGrid.VelocitiesX[x, y], targetVel, alpha);
+                    }
+                }
+            }
+            
+            // Vertical flow (Y velocity) with gradient
+            if(source.velXY.y != 0){
+                int startY = (source.velXY.y > 0) ? y0 : yf;
+                int direction = (source.velXY.y > 0) ? 1 : -1;
+                
+                for(int x = x0; x <= xf; x++){
+                    if(x < 0 || x >= fluidGrid.CellCountX) continue;
+                    
+                    // Apply velocity with decreasing strength over buffer zone
+                    for(int offset = 0; offset < bufferZone; offset++){
+                        int y = startY + offset * direction;
+                        if(y < 0 || y > fluidGrid.CellCountY) continue;
+                        
+                        // Smooth falloff
+                        float weight = 1.0f - (float)offset / bufferZone;
+                        float targetVel = source.velXY.y * weight;
+                        
+                        // Blend with existing velocity instead of overwriting
+                        float alpha = 0.3f; // How strongly to apply the source
+                        fluidGrid.VelocitiesY[x, y] = Mathf.Lerp(fluidGrid.VelocitiesY[x, y], targetVel, alpha);
+                    }
+                }
+            }
+        }
     }
 
     public void HandleInteraction()

@@ -133,26 +133,33 @@ public class FluidGrid
         }
     }
 
-    public void SetEdgeBoundaries()
+    public void SetEdgeBoundaries(bool[] upperLowerLeftRight)
     {
         for (int x = 0; x < CellCountX; x++)
         {
-            SolidCellMap[x, 0] = true;
-            SolidCellMap[x, CellCountY - 1] = true;
+            
+            if(upperLowerLeftRight[1])
+                SolidCellMap[x, 0] = true;
+            
+            if(upperLowerLeftRight[0])
+                SolidCellMap[x, CellCountY - 1] = true;
         }
 
         for (int y = 0; y < CellCountY; y++)
         {
-            SolidCellMap[0, y] = true;
-            SolidCellMap[CellCountX - 1, y] = true;
+            if(upperLowerLeftRight[2])
+                SolidCellMap[0, y] = true;
+            
+            if(upperLowerLeftRight[3])
+                SolidCellMap[CellCountX - 1, y] = true;
         }
     }
 
     public void SetCircularBoundary(int x_pos, int y_pos, int radius)
     {
-        for (int x = math.max(0,x_pos-radius); x < math.max(CellCountX,x_pos+radius); x++)
+        for (int x = math.max(0,x_pos-radius); x <= math.min(CellCountX-1,x_pos+radius); x++)
         {
-            for (int y = math.max(0,y_pos-radius); y < math.max(CellCountY,y_pos+radius); y++)
+            for (int y = math.max(0,y_pos-radius); y <= math.min(CellCountY-1,y_pos+radius); y++)
             {   
                 //if()
                 if ((x-x_pos)*(x-x_pos) + (y-y_pos)*(y-y_pos) <= radius*radius)//Mathf.Abs(x-x_pos)+Mathf.Abs(y-y_pos) <= radius)
@@ -165,15 +172,26 @@ public class FluidGrid
 
     public void SetDiamondBoundary(int x_pos, int y_pos, int radius)
     {
-        for (int x = math.max(0,x_pos-radius); x < math.max(CellCountX,x_pos+radius); x++)
+        for (int x = math.max(0,x_pos-radius); x <= math.min(CellCountX-1,x_pos+radius); x++)
         {
-            for (int y = math.max(0,y_pos-radius); y < math.max(CellCountY,y_pos+radius); y++)
+            for (int y = math.max(0,y_pos-radius); y <= math.min(CellCountY-1,y_pos+radius); y++)
             {   
                 //if()
                 if (Mathf.Abs(x-x_pos)+Mathf.Abs(y-y_pos) <= radius)
                 {
                     SolidCellMap[x, y] = true;
                 }
+            }
+        }
+    }
+
+    public void SetSquareBoundary(int x_pos, int y_pos, int radius)
+    {
+        for (int x = math.max(0,x_pos-radius); x <= math.min(CellCountX-1,x_pos+radius); x++)
+        {
+            for (int y = math.max(0,y_pos-radius); y <= math.min(CellCountY-1,y_pos+radius); y++)
+            {   
+                SolidCellMap[x, y] = true;
             }
         }
     }

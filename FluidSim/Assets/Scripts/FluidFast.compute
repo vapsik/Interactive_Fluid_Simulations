@@ -28,8 +28,8 @@ RWTexture2D<float> _WriteDivergence;
 //general float values
 float _CellSize;
 float _TimeStep;
-float _CountX;
-float _CountY;
+uint _CountX;
+uint _CountY;
 float _Decay;
 
 //for velocity brush and dye brush 
@@ -76,11 +76,11 @@ void DyeBrush(uint3 id : SV_DispatchThreadID){
     int x = _CentreCoord.x + id.x -_NumCellsHalf;
     int y = _CentreCoord.y + id.y -_NumCellsHalf;
     
-    if (x < 0 || x >= _CountX || y < 0 || y >= _CountY){
+    if (x < 0 || x >= int(_CountX) || y < 0 || y >= int(_CountY)){
         return;
     }
 
-    if((id.x-_NumCellsHalf)*(id.x-_NumCellsHalf)+(id.y-_NumCellsHalf)*(id.y-_NumCellsHalf) > _NumCellsHalf*_NumCellsHalf){
+    if((int(id.x)-_NumCellsHalf)*(int(id.x)-_NumCellsHalf)+(int(id.y)-_NumCellsHalf)*(int(id.y)-_NumCellsHalf) > _NumCellsHalf*_NumCellsHalf){
         return;
     }
 
@@ -98,7 +98,7 @@ void VelocityBrush(uint3 id : SV_DispatchThreadID){
     int x = _CentreCoord.x + id.x -_NumCellsHalf;
     int y = _CentreCoord.y + id.y -_NumCellsHalf;
     
-    if (x < 0 || x >= _CountX || y < 0 || y >= _CountY){
+    if (x < 0 || x >= int(_CountX) || y < 0 || y >= int(_CountY)){
         return;
     }
 
@@ -154,7 +154,7 @@ void AdvectVelocities (uint3 id : SV_DispatchThreadID)
 
         float2 currentPos = id.xy + int2(-0.5,+0.5);
         currentPos = float2(clamp(currentPos.x, 0, _CountX), clamp(currentPos.y, 0, _CountY+1));
-        float backtrackVel = float2(_ReadVelocityX[id.xy], BilinearScalar(_ReadVelocityY, currentPos));
+        float2 backtrackVel = float2(_ReadVelocityX[id.xy], BilinearScalar(_ReadVelocityY, currentPos));
         float2 deltaIndex = backtrackVel * _TimeStep / _CellSize;
         float2 samplePos = currentPos - deltaIndex;
         samplePos = float2(clamp(samplePos.x, 0, _CountX+1), clamp(samplePos.y, 0, _CountY));
@@ -165,7 +165,7 @@ void AdvectVelocities (uint3 id : SV_DispatchThreadID)
     if(id.x < _CountX && id.y < _CountY + 1){
         float2 currentPos = id.xy + int2(+0.5,-0.5);
         currentPos = float2(clamp(currentPos.x, 0, _CountX+1), clamp(currentPos.y, 0, _CountY));
-        float backtrackVel = float2(BilinearScalar(_ReadVelocityX, currentPos), _ReadVelocityY[id.xy]);
+        float2 backtrackVel = float2(BilinearScalar(_ReadVelocityX, currentPos), _ReadVelocityY[id.xy]);
         float2 deltaIndex = backtrackVel * _TimeStep / _CellSize;
         float2 samplePos = currentPos - deltaIndex;
         samplePos = float2(clamp(samplePos.x, 0, _CountX), clamp(samplePos.y, 0, _CountY+1));

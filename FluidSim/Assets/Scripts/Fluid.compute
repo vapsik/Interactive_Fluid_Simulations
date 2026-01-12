@@ -135,10 +135,6 @@ void SubtractGradient (uint3 id : SV_DispatchThreadID)
         velocity.y = 0.0;
     }*/
 
-    
-
-    
-
     /*if (_SolidCellMap[id.xy+int2(1,0)].r > 0.5 || _SolidCellMap[id.xy+int2(-1,0)].r > 0.5)
     {
         velocity.x = 0.0;
