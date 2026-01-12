@@ -6,6 +6,15 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/ColorfulScene 1.unity
+    path: Assets/Scenes/Menu.unity
+    guid: 1559ea4b666acb446a32275d490ed9c6
+  - enabled: 1
+    path: Assets/Scenes/ColorfulScene.unity
+    guid: aa05da13c7fcde74f94dcea92bfaeb0c
+  - enabled: 1
+    path: Assets/Scenes/ColorfulSceneWithObstacle.unity
     guid: 449880db982d42f4da52a150acbad299
+  - enabled: 1
+    path: Assets/Scenes/WindTunnel.unity
+    guid: 60abe073279c67e4cbca6430d71b37f6
   m_configObjects: {}

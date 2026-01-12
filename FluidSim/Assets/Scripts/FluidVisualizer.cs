@@ -8,8 +8,10 @@ using UnityEngine;
 public class FluidVisualizer : MonoBehaviour
 {
     private FluidGrid fluidGrid;
-    public Color dyeColor = new Color(1, 0, 0, 0.5f);
-    public Color dyeColor2 = new Color(0, 1, 0, 0.5f);
+    public Color dyeColor1 = new Color(1.0f, 0.0f, 0.0f, 1.0f);
+    public Color dyeColor2 = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+    public Color dyeColor3 = new Color(0.0f, 0.0f, 1.0f, 1.0f);
+    private Color chosenDyeColor;
     private Vector2 mousePosOld;
     
     public bool drawVelocityField = true;
@@ -33,6 +35,7 @@ public class FluidVisualizer : MonoBehaviour
     // Velocity mesh rendering
     private Mesh velocityMesh;
     private Material velocityMaterial;
+    private LineRenderer circleLineRenderer;
     private int velocityLineCount = 0;
     private List<Vector3> velocityVertices = new List<Vector3>();
     private List<int> velocityIndices = new List<int>();
@@ -72,6 +75,20 @@ public class FluidVisualizer : MonoBehaviour
         velMeshFilter.mesh = velocityMesh;
         velocityRenderer.material = velocityMaterial;
         DrawSolidCell();
+
+        // setup circle LineRenderer
+        chosenDyeColor = dyeColor1;
+        GameObject circleObject = new GameObject("InteractionCircle");
+        circleObject.transform.SetParent(transform);
+        circleLineRenderer = circleObject.AddComponent<LineRenderer>();
+        circleLineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        circleLineRenderer.startColor = chosenDyeColor;
+        circleLineRenderer.endColor = chosenDyeColor;
+        circleLineRenderer.startWidth = 0.2f; 
+        circleLineRenderer.endWidth = 0.2f;
+        circleLineRenderer.loop = true;
+        circleLineRenderer.useWorldSpace = true;
+
     }
 
     public void SetFluidGrid(FluidGrid grid)
@@ -97,7 +114,7 @@ public class FluidVisualizer : MonoBehaviour
         // initialize velocity mesh
         velocityMesh = new Mesh();
         velocityMaterial = new Material(Shader.Find("Sprites/Default"));
-        velocityMaterial.color = Color.red;
+        velocityMaterial.color = Color.yellow;
         
         BuildVelocityMesh();
     }
@@ -164,7 +181,10 @@ public class FluidVisualizer : MonoBehaviour
 
     private void BuildVelocityMesh()
     {
-        if (!drawVelocityField) return;
+        if (!drawVelocityField){ 
+            velocityMesh.Clear();
+            return;
+        }
 
         velocityVertices.Clear();
         velocityIndices.Clear();
@@ -229,6 +249,39 @@ public class FluidVisualizer : MonoBehaviour
         smokeTexture.Apply(false);
     }
 
+    void Update()
+    {
+        ReadSwitches();
+    }
+
+    void ReadSwitches()
+    {
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            chosenDyeColor = dyeColor1;
+            circleLineRenderer.startColor = chosenDyeColor;
+            circleLineRenderer.endColor = chosenDyeColor;
+        }
+
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            chosenDyeColor = dyeColor2;
+            circleLineRenderer.startColor = chosenDyeColor;
+            circleLineRenderer.endColor = chosenDyeColor;
+        }
+
+        if (Input.GetKeyDown(KeyCode.B))
+        {
+            chosenDyeColor = dyeColor3;
+            circleLineRenderer.startColor = chosenDyeColor;
+            circleLineRenderer.endColor = chosenDyeColor;
+        }
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            drawVelocityField = !drawVelocityField;
+        }
+    }
+
     private void LateUpdate()
     {
         if (fluidGrid == null) return;
@@ -241,6 +294,31 @@ public class FluidVisualizer : MonoBehaviour
         // update velocity mesh periodically (every frame or less frequently)
         BuildVelocityMesh();
 
+        if (isInteractive)
+        {
+            UpdateCircleLineRenderer(mouseWorldPosPrev, interactionRadius, 32);
+            circleLineRenderer.enabled = true;
+        }
+        else
+        {
+            circleLineRenderer.enabled = false;
+        }
+
+    }
+
+    void UpdateCircleLineRenderer(Vector3 centre, float radius, int segments)
+    {
+        if (segments < 3) segments = 3;
+        
+        circleLineRenderer.positionCount = segments;
+        float angleStep = Mathf.PI * 2f / segments;
+
+        for (int i = 0; i < segments; i++)
+        {
+            float angle = i * angleStep;
+            Vector3 point = centre + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0f);
+            circleLineRenderer.SetPosition(i, point);
+        }
     }
     
     private Vector2Int CellCoordFromPosNew(Vector2 worldPos)
@@ -258,75 +336,16 @@ public class FluidVisualizer : MonoBehaviour
         return new Vector2Int(x, y);
     }
 
-    void OnDrawGizmos()
+    /*void OnDrawGizmos()
     {
-        /*if (fluidGrid == null){return;}
-        
-        for (int x = 0; x < fluidGrid.CellCountX; x++)
-        {
-            for (int y = 0; y < fluidGrid.CellCountY; y++)
-            {
-                Vector4 smokeValue = new Vector4(fluidGrid.SmokeMap4Ch[x, y, 0], fluidGrid.SmokeMap4Ch[x, y, 1], fluidGrid.SmokeMap4Ch[x, y, 2], fluidGrid.SmokeMap4Ch[x, y, 3] );
-
-                if (smokeValue.w > 0.01f)
-                {
-                    //dyeColor.a = smokeValue * 0.5f;
-                    Gizmos.color = smokeValue;
-
-                    float worldX = (x + 0.5f) * fluidGrid.CellSize;
-                    float worldY = (y + 0.5f) * fluidGrid.CellSize;
-                    Vector3 cellCenter = new Vector3(worldX, worldY, 0);
-
-                    Vector3 cellSize = Vector3.one * fluidGrid.CellSize;
-                    Gizmos.DrawCube(cellCenter, cellSize);
-                }
-            }
-        }
-        
-        if (!drawVelocityField)
-        {
-            return;
-        }*/
-
-        /*int skip = Mathf.Max(1, velocityArrowSkip);
-
-        for (int x = 0; x < fluidGrid.CellCountX; x += skip)
-        {
-            for (int y = 0; y < fluidGrid.CellCountY; y += skip)
-            {
-                Vector2 pos = fluidGrid.CellCentre(x, y);
-                Vector2 vel = fluidGrid.GetVelocityAtWorldPos(pos);
-                float speed = vel.magnitude;
-
-                float speedT = Mathf.InverseLerp(minSpeedForColor, midSpeedForColor, speed);
-  
-                float colorT = Mathf.PingPong(speedT, 1.0f);
-  
-                Gizmos.color = Color.Lerp(Color.red, Color.green, colorT);
-
-                Vector3 start = new Vector3(pos.x, pos.y, 0);
-                Vector3 end = start + new Vector3(vel.x, vel.y, 0) * velocityArrowScale;
-                
-                if (Vector3.Distance(start, end) > 0.01f)
-                {
-                    Gizmos.DrawLine(start, end);
-                    Vector3 v = (end - start).normalized;
-                    Vector3 right = Quaternion.Euler(0, 0, -30) * (-v * 0.1f * fluidGrid.CellSize);
-                    Vector3 left = Quaternion.Euler(0, 0, 30) * (-v * 0.1f * fluidGrid.CellSize);
-                    Gizmos.DrawLine(end, end + right);
-                    Gizmos.DrawLine(end, end + left);
-                }
-            }
-        }*/
-
         if (isInteractive)
         {         
             Gizmos.color = Color.yellow;
             DrawCircleXZ(mouseWorldPosPrev, interactionRadius, 32);   
         }
-    }
+    }*/
 
-    void DrawCircleXZ(Vector3 centre, float radius, int segments)
+    /*void DrawCircleXZ(Vector3 centre, float radius, int segments)
     {
         if (segments < 3) segments = 3;
         float angleStep = Mathf.PI * 2f / segments;
@@ -339,7 +358,7 @@ public class FluidVisualizer : MonoBehaviour
             Gizmos.DrawLine(prevPoint, nextPoint);
             prevPoint = nextPoint;
         }
-    }
+    }*/
 
 
     Vector3 mouseWorldPos;
@@ -413,16 +432,10 @@ public class FluidVisualizer : MonoBehaviour
                 ApplyVelocityBrush(centreCoord, numCellsHalf, mouseDelta, interactionStrength);
             }
 
-            // Middle mouse button: add dye(Green)
-            if (Input.GetMouseButton(2))
+            // Right mouse button: add dye
+            if (Input.GetMouseButton(1) || Input.GetMouseButton(2))
             {
-                ApplyDyeBrush(dyeColor2, mousePos, numCellsHalf);
-            }
-
-            // Right mouse button: add dye(Red)
-            if (Input.GetMouseButton(1))
-            {
-                ApplyDyeBrush(dyeColor, mousePos, numCellsHalf);
+                ApplyDyeBrush(chosenDyeColor, mousePos, numCellsHalf);
             }
 
             mouseWorldPosPrev = mouseWorldPos;

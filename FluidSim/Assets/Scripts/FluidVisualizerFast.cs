@@ -247,6 +247,7 @@ public class FluidVisualizerFast : MonoBehaviour
         return new Vector2Int(x, y);
     }
 
+    /*
     void OnDrawGizmos()
     {
         /*if (fluidGrid == null){return;}
@@ -306,7 +307,7 @@ public class FluidVisualizerFast : MonoBehaviour
                     Gizmos.DrawLine(end, end + left);
                 }
             }
-        }*/
+        }
 
         if (isInteractive)
         {         
@@ -328,7 +329,7 @@ public class FluidVisualizerFast : MonoBehaviour
             Gizmos.DrawLine(prevPoint, nextPoint);
             prevPoint = nextPoint;
         }
-    }
+    }*/
 
 
     Vector3 mouseWorldPos;
