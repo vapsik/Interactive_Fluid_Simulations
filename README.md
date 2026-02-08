@@ -1,6 +1,6 @@
 # A Gallery of Interactive Fluid Simulations 
 
-**A project for University of Tartu Computer Graphics Course (2025).**\\
+**A project for University of Tartu Computer Graphics Course (2025).**\
 **[Up-to-date introduction page link](https://courses.cs.ut.ee/2025/cg/fall/Main/Project-ParticleSimulation)**
 
 #### Creators
